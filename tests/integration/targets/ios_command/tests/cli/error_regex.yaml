@@ -1,0 +1,48 @@
+- debug: msg="START cli/error_regex.yaml on connection={{ ansible_connection }}"
+- block:
+  - name: clear logs 1
+    cli_command: &id001
+      command: clear logging
+      prompt:
+      - Clear logging buffer
+      answer:
+      - "\r"
+    ignore_errors: true
+  - name: send log with error regex match 1
+    cli_command: &id002
+      command: 'send log ''IPSEC-3-REPLAY_ERROR: test log_1'''
+    ignore_errors: true
+  - name: fetch logs without command specific error regex
+    ios_command:
+      commands:
+      - show logging
+    register: result
+    ignore_errors: true
+  - name: ensure task fails due to mismatched regex
+    assert:
+      that:
+      - result.failed == true
+  - name: pause to avoid rate limiting
+    pause:
+      seconds: 10
+  - name: clear logs 2
+    cli_command: *id001
+    ignore_errors: true
+  - name: send log with error regex match 2
+    cli_command: *id002
+    ignore_errors: true
+  - name: fetch logs with command specific error regex
+    ios_command:
+      commands:
+      - show logging
+    register: result
+    vars:
+      ansible_terminal_stderr_re:
+      - pattern: connection timed out
+        flags: re.I
+  - name: ensure task with modified error regex is ansible.community.success
+    assert:
+      that:
+      - result.failed == false
+  when: ansible_connection == 'network_cli'
+- debug: msg="END cli/error_regex.yaml on connection={{ ansible_connection }}"

@@ -1,0 +1,4 @@
+- name: Delete existing repo
+  file:
+    path: '{{ test_repo_path }}'
+    state: absent

@@ -1,0 +1,44 @@
+- debug: msg="START connection={{ ansible_connection }} nxos_snmp_community sanity
+    test"
+- name: Setup - Remove snmp_contact if configured
+  nxos_snmp_contact: &id005
+    contact: Test
+    state: absent
+- block:
+  - name: Configure snmp contact
+    nxos_snmp_contact: &id001
+      contact: Testing
+      state: present
+    register: result
+  - assert: &id002
+      that:
+      - result.changed == true
+  - name: Idempotence Check
+    nxos_snmp_contact: *id001
+    register: result
+  - assert: &id004
+      that:
+      - result.changed == false
+  - name: Change snmp contact
+    nxos_snmp_contact: &id003
+      contact: Test
+      state: present
+    register: result
+  - assert: *id002
+  - name: Idempotence Check
+    nxos_snmp_contact: *id003
+    register: result
+  - assert: *id004
+  - name: Remove snmp contact
+    nxos_snmp_contact: *id005
+    register: result
+  - assert: *id002
+  - name: Idempotence Check
+    nxos_snmp_contact: *id005
+    register: result
+  - assert: *id004
+  always:
+  - name: Cleanup
+    nxos_snmp_contact: *id005
+  - debug: msg="END connection={{ ansible_connection }} nxos_snmp_community sanity
+      test"

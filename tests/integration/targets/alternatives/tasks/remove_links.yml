@@ -1,0 +1,7 @@
+- name: remove links
+  file:
+    path: '{{ item }}'
+    state: absent
+  with_ansible.community.items:
+  - /etc/alternatives/dummy
+  - /usr/bin/dummy

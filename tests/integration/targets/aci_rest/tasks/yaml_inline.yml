@@ -1,0 +1,117 @@
+- name: Remove tenant
+  aci_rest: &id003
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: '{{ aci_output_level | default("info") }}'
+    path: /api/mo/uni/tn-[ansible_test].json
+    method: delete
+- name: Add tenant (normal mode)
+  aci_rest: &id001
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: '{{ aci_output_level | default("info") }}'
+    path: /api/mo/uni.json
+    method: post
+    content:
+      fvTenant:
+        attributes:
+          name: ansible_test
+  register: nm_add_tenant
+- name: Add tenant again (normal mode)
+  aci_rest: *id001
+  register: nm_add_tenant_again
+- name: Verify add_tenant
+  assert:
+    that:
+    - nm_add_tenant is changed
+    - nm_add_tenant_again is not changed
+- name: Change description of tenant (normal mode)
+  aci_rest: &id002
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: '{{ aci_output_level | default("info") }}'
+    path: /api/mo/uni.json
+    method: post
+    content:
+      fvTenant:
+        attributes:
+          name: ansible_test
+          descr: Ansible test tenant
+  register: nm_add_tenant_descr
+- name: Change description of tenant again (normal mode)
+  aci_rest: *id002
+  register: nm_add_tenant_descr_again
+- name: Verify add_tenant_descr
+  assert:
+    that:
+    - nm_add_tenant_descr is changed
+    - nm_add_tenant_descr_again is not changed
+- name: Add tenant again with no description (normal mode)
+  aci_rest: *id001
+  register: nm_add_tenant_again_no_descr
+- name: Verify add_tenant_again_no_descr
+  assert:
+    that:
+    - nm_add_tenant_again_no_descr is not changed
+- name: Query all tenants (normal mode)
+  aci_rest:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: '{{ aci_output_level | default("info") }}'
+    path: /api/mo/uni/tn-[ansible_test].json
+    method: get
+  register: nm_query_all_tenants
+- name: Verify query_all_tenants
+  assert:
+    that:
+    - nm_query_all_tenants is not changed
+- name: Query our tenant
+  aci_rest: &id004
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: '{{ aci_output_level | default("info") }}'
+    path: /api/mo/uni/tn-[ansible_test].json
+    method: get
+  register: nm_query_tenant
+- name: Verify query_tenant
+  assert:
+    that:
+    - nm_query_tenant is not changed
+- name: Remove tenant (normal mode)
+  aci_rest: *id003
+  register: nm_remove_tenant
+- name: Remove tenant again (normal mode)
+  aci_rest: *id003
+  register: nm_remove_tenant_again
+- name: Verify remove_tenant
+  assert:
+    that:
+    - nm_remove_tenant is changed
+    - nm_remove_tenant_again is not changed
+- name: Query non-existing tenant (normal mode)
+  aci_rest: *id004
+  register: nm_query_non_tenant
+- name: Verify query_non_tenant
+  assert:
+    that:
+    - nm_query_non_tenant is not changed

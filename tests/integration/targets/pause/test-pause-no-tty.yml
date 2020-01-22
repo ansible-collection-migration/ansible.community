@@ -1,0 +1,6 @@
+- name: Test pause
+  hosts: localhost
+  gather_facts: false
+  become: false
+  tasks:
+  - pause: null

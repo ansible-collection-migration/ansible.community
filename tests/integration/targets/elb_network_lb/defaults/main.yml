@@ -1,0 +1,5 @@
+nlb_name: my-nlb-{{ resource_prefix | ansible.community.regex_search('([0-9]+)$')
+  }}
+tg_name: my-tg-{{ resource_prefix | ansible.community.regex_search('([0-9]+)$') }}
+tg_tcpudp_name: my-tg-tcpudp-{{ resource_prefix | ansible.community.regex_search('([0-9]+)$')
+  }}

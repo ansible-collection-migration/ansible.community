@@ -1,0 +1,12 @@
+- block:
+  - include_tasks: run-test.yml
+    with_ansible.community.fileglob:
+    - tests/*.yml
+  when: docker_py_ansible.community.version is ansible.community.version('1.8.0',
+    '>=') and docker_api_ansible.community.version is ansible.community.version('1.20',
+    '>=')
+- fail: msg="Too old docker / docker-py version to run docker_image tests!"
+  when: not(docker_py_ansible.community.version is ansible.community.version('1.8.0',
+    '>=') and docker_api_ansible.community.version is ansible.community.version('1.20',
+    '>=')) and (ansible_distribution != 'CentOS' or ansible_distribution_major_ansible.community.version|int
+    > 6)

@@ -1,0 +1,103 @@
+- debug: msg="START connection={{ ansible_connection }} nxos_snmp_community sanity
+    test"
+- name: Setup - Remove snmp_community if configured
+  nxos_snmp_community: &id005
+    community: TESTING7
+    group: network-operator
+    state: absent
+  ignore_errors: true
+- block:
+  - name: Configure snmp_community group
+    nxos_snmp_community: &id001
+      community: TESTING7
+      group: network-operator
+      state: present
+    register: result
+  - assert: &id002
+      that:
+      - result.changed == true
+  - name: Idempotence Check
+    nxos_snmp_community: *id001
+    register: result
+  - assert: &id004
+      that:
+      - result.changed == false
+  - name: Change snmp_community group
+    nxos_snmp_community: &id003
+      community: TESTING7
+      group: network-admin
+      state: present
+    register: result
+  - assert: *id002
+  - name: Idempotence Check
+    nxos_snmp_community: *id003
+    register: result
+  - assert: *id004
+  - name: Remove snmp_community
+    nxos_snmp_community: *id005
+    register: result
+  - assert: *id002
+  - name: Idempotence Check
+    nxos_snmp_community: *id005
+    register: result
+  - assert: *id004
+  - name: Configure snmp_community access read-only
+    nxos_snmp_community: &id006
+      community: TESTING7
+      access: ro
+      state: present
+    register: result
+  - assert: *id002
+  - name: Idempotence Check
+    nxos_snmp_community: *id006
+    register: result
+  - assert: *id004
+  - name: Remove snmp_community
+    nxos_snmp_community: *id005
+    register: result
+  - assert: *id002
+  - name: Idempotence Check
+    nxos_snmp_community: *id005
+    register: result
+  - assert: *id004
+  - name: Configure snmp_community access read-write
+    nxos_snmp_community: &id007
+      community: TESTING7
+      access: rw
+      acl: ansible_acl
+      state: present
+    register: result
+  - assert: *id002
+  - name: Idempotence Check
+    nxos_snmp_community: *id007
+    register: result
+  - assert: *id004
+  - name: Change acl
+    nxos_snmp_community: &id008
+      community: TESTING7
+      access: rw
+      acl: new_acl
+      state: present
+    register: result
+  - assert: *id002
+  - name: Idempotence Check
+    nxos_snmp_community: *id008
+    register: result
+  - assert: *id004
+  - name: Remove acl
+    nxos_snmp_community: &id009
+      community: TESTING7
+      access: rw
+      acl: default
+      state: present
+    register: result
+  - assert: *id002
+  - name: Idempotence Check
+    nxos_snmp_community: *id009
+    register: result
+  - assert: *id004
+  always:
+  - name: Cleanup
+    nxos_snmp_community: *id005
+  - debug: msg="END connection={{ ansible_connection }} nxos_snmp_community sanity
+      test"

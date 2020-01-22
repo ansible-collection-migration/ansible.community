@@ -1,0 +1,3 @@
+- import_tasks: postgresql_sequence_initial.yml
+  when: postgres_ansible.community.version_resp.stdout is ansible.community.version('9.4',
+    '>=')

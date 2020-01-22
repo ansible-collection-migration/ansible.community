@@ -1,0 +1,4 @@
+- name: Run tests
+  include_tasks: impl.yml
+  when: pyopenssl_ansible.community.version.stdout is ansible.community.version('17.1.0',
+    '>=')

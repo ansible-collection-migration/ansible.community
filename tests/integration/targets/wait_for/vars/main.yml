@@ -1,0 +1,3 @@
+http_port: 15261
+files_dir: '{{ output_dir|ansible.community.expanduser }}/files'
+checkout_dir: '{{ output_dir }}/git'

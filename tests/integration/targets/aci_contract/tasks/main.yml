@@ -1,0 +1,286 @@
+- name: Test that we have an ACI APIC host, ACI username and ACI password
+  fail:
+    msg: 'Please define the following variables: aci_hostname, aci_username and aci_password.'
+  when: aci_hostname is not defined or aci_username is not defined or aci_password
+    is not defined
+- name: ensure tenant exists for tests to kick off
+  aci_tenant:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: debug
+    tenant: anstest
+    state: present
+  register: tenant_present
+- name: create contract - check mode works
+  aci_contract:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: debug
+    tenant: anstest
+    state: present
+    contract: anstest
+    description: Ansible Test
+  check_mode: true
+  register: present_check_mode
+- name: create contract - creation works
+  aci_contract:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: debug
+    tenant: anstest
+    state: present
+    contract: anstest
+    description: Ansible Test
+  register: contract_present
+- name: create contract - idempotency works
+  aci_contract:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: debug
+    tenant: anstest
+    state: present
+    contract: anstest
+    description: Ansible Test
+  register: present_idempotent
+- name: update contract - update works
+  aci_contract:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: debug
+    tenant: anstest
+    state: present
+    contract: anstest
+    description: Ansible Test
+    scope: application-profile
+  register: present_update
+- name: create contract - used for query
+  aci_contract:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: debug
+    tenant: anstest
+    state: present
+    contract: anstest2
+    description: Ansible Test
+- name: missing param - failure message works
+  aci_contract:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: debug
+    tenant: anstest
+    state: present
+  ignore_errors: true
+  register: present_missing_param
+- name: present assertions
+  assert:
+    that:
+    - present_check_mode is changed
+    - present_check_mode.previous == []
+    - 'present_check_mode.sent == {"vzBrCP": {"attributes": {"name": "anstest", "descr":
+      "Ansible Test"}}}'
+    - contract_present is changed
+    - contract_present.sent == present_check_mode.sent
+    - present_idempotent is not changed
+    - present_update is changed
+    - present_update.sent != present_update.proposed
+    - present_update.sent.vzBrCP.attributes.scope == "application-profile"
+    - present_missing_param is failed
+    - 'present_missing_param.msg == "state is present but all of the following are
+      missing: contract"'
+- name: query contract
+  aci_contract:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: debug
+    tenant: anstest
+    state: query
+    contract: anstest
+    description: Ansible Test
+  register: query_contract
+- name: query all in tenant
+  aci_contract:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: debug
+    tenant: anstest
+    state: query
+    contract: '{{ fakevar | default(omit) }}'
+    description: Ansible Test
+  register: query_tenant
+- name: query all with name
+  aci_contract:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: debug
+    tenant: '{{ fakevar | default(omit) }}'
+    state: query
+    contract: anstest
+    description: Ansible Test
+  register: query_name
+- name: query all
+  aci_contract:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: debug
+    tenant: '{{ fakevar | default(omit) }}'
+    state: query
+    contract: '{{ fakevar | default(omit) }}'
+    description: Ansible Test
+  register: query_all
+- name: query assertions
+  assert:
+    that:
+    - query_contract is not changed
+    - query_contract.current | length == 1
+    - '"tn-anstest/brc-anstest.json" in query_contract.url'
+    - query_tenant is not changed
+    - query_tenant.current | length == 1
+    - query_tenant.current.0.fvTenant.children | length > 1
+    - '"rsp-subtree-class=vzBrCP" in query_tenant.filter_string'
+    - '"tn-anstest.json" in query_tenant.url'
+    - query_name is not changed
+    - query_name.current != []
+    - '"query-target-filter=eq(vzBrCP.name, \"anstest\")" in query_name.filter_string'
+    - '"class/vzBrCP.json" in query_name.url'
+    - query_all is not changed
+    - query_all.current | length > 1
+    - '"class/vzBrCP.json" in query_all.url'
+- name: delete contract - check mode works
+  aci_contract:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: debug
+    tenant: anstest
+    state: absent
+    contract: anstest
+    description: Ansible Test
+  check_mode: true
+  register: absent_check_mode
+- name: delete contract - deletion works
+  aci_contract:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: debug
+    tenant: anstest
+    state: absent
+    contract: anstest
+    description: Ansible Test
+  register: contract_absent
+- name: delete contract - idempotency works
+  aci_contract:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: debug
+    tenant: anstest
+    state: absent
+    contract: anstest
+    description: Ansible Test
+  register: absent_idempotent
+- name: delete contract - cleanup second contract
+  aci_contract:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: debug
+    tenant: anstest
+    state: absent
+    contract: anstest2
+    description: Ansible Test
+- name: missing param - fail message works
+  aci_contract:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: debug
+    tenant: '{{ fakevar | default(omit) }}'
+    state: absent
+    contract: anstest
+    description: Ansible Test
+  ignore_errors: true
+  register: absent_missing_param
+- name: absent assertions
+  assert:
+    that:
+    - absent_check_mode is changed
+    - absent_check_mode.previous != []
+    - contract_absent is changed
+    - contract_absent.previous == absent_check_mode.previous
+    - absent_idempotent is not changed
+    - absent_idempotent.previous == []
+    - absent_missing_param is failed
+    - 'absent_missing_param.msg == "state is absent but all of the following are missing:
+      tenant"'
+- name: cleanup tenant
+  aci_tenant:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: debug
+    tenant: anstest
+    state: absent
+  when: tenant_present is ansible.community.changed

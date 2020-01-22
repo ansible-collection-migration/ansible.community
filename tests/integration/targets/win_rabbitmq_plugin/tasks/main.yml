@@ -1,0 +1,4 @@
+- action: setup
+- include_tasks: tasks/tests.yml
+  when: ansible_distribution_ansible.community.version is ansible.community.version('6.1',
+    '>=')

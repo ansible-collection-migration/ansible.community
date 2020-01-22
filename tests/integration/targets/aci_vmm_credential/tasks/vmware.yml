@@ -1,0 +1,211 @@
+- name: Remove VMM domain (normal mode)
+  aci_domain: &id006
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: '{{ aci_output_level | default("info") }}'
+    domain: vmm_dom
+    domain_type: vmm
+    vm_provider: vmware
+    state: absent
+  register: nm_remove_domain
+- name: Add VMM domain (normal mode)
+  aci_domain:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: '{{ aci_output_level | default("info") }}'
+    domain: vmm_dom
+    domain_type: vmm
+    vm_provider: vmware
+    state: present
+  register: nm_add_domain
+- name: Verify add_domain
+  assert:
+    that:
+    - nm_add_domain is changed
+- name: Remove credential (check mode)
+  aci_vmm_credential: &id001
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: '{{ aci_output_level | default("info") }}'
+    name: vmm_cred
+    description: my_new_cred
+    domain: vmm_dom
+    credential_username: myUsername
+    credential_password: mySecretPassword
+    vm_provider: vmware
+    state: absent
+  check_mode: true
+  register: cm_remove_credential
+- name: Remove vmware VMM credential (normal mode)
+  aci_vmm_credential: *id001
+  register: nm_remove_credential
+- name: Verify remove_credential
+  assert:
+    that:
+    - cm_remove_credential is not changed
+    - nm_remove_credential is not changed
+- name: Add vmware VMM credential (check mode)
+  aci_vmm_credential: &id002
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: '{{ aci_output_level | default("info") }}'
+    name: vmm_cred
+    description: my_new_cred
+    domain: vmm_dom
+    credential_username: myUsername
+    credential_password: mySecretPassword
+    vm_provider: vmware
+    state: present
+  check_mode: true
+  register: cm_add_credential
+- name: Add vmware VMM credential (normal mode)
+  aci_vmm_credential: *id002
+  register: nm_add_credential
+- name: Add vmware VMM credential again (check mode)
+  aci_vmm_credential: *id002
+  check_mode: true
+  register: cm_add_credential_again
+- name: Verify add_credential
+  assert:
+    that:
+    - cm_add_credential is changed
+    - nm_add_credential is changed
+    - 'cm_add_credential.sent == nm_add_credential.sent == {"vmmUsrAccP": {"attributes":
+      {"descr": "my_new_cred", "name": "vmm_cred", "pwd": "mySecretPassword", "usr":
+      "myUsername"}}}'
+    - 'cm_add_credential.proposed == nm_add_credential.proposed == {"vmmUsrAccP":
+      {"attributes": {"descr": "my_new_cred", "name": "vmm_cred", "pwd": "mySecretPassword",
+      "usr": "myUsername"}}}'
+    - cm_add_credential.current == cm_add_credential.previous == nm_add_credential.previous
+      == []
+    - nm_add_credential.current.0.vmmUsrAccP.attributes.dn == 'uni/vmmp-VMware/dom-vmm_dom/usracc-vmm_cred'
+    - nm_add_credential.current.0.vmmUsrAccP.attributes.name == 'vmm_cred'
+- name: Modify vmware VMM credential (check mode)
+  aci_vmm_credential: &id003
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: '{{ aci_output_level | default("info") }}'
+    name: vmm_cred
+    description: my_updated_descr
+    domain: vmm_dom
+    credential_username: myNewUsername
+    credential_password: myNewSecretPassword
+    vm_provider: vmware
+    state: present
+  check_mode: true
+  register: cm_mod_credential
+- name: Modify vmware VMM credential (normal mode)
+  aci_vmm_credential: *id003
+  register: nm_mod_credential
+- name: Verify mod_credential
+  assert:
+    that:
+    - cm_mod_credential is changed
+    - nm_mod_credential is changed
+    - 'cm_mod_credential.sent == nm_mod_credential.sent == {"vmmUsrAccP": {"attributes":
+      {"descr": "my_updated_descr", "pwd": "myNewSecretPassword", "usr": "myNewUsername"}}}'
+    - 'cm_mod_credential.proposed == nm_mod_credential.proposed == {"vmmUsrAccP":
+      {"attributes": {"descr": "my_updated_descr", "name": "vmm_cred", "pwd": "myNewSecretPassword",
+      "usr": "myNewUsername"}}}'
+    - nm_mod_credential.current.0.vmmUsrAccP.attributes.dn == 'uni/vmmp-VMware/dom-vmm_dom/usracc-vmm_cred'
+    - nm_mod_credential.current.0.vmmUsrAccP.attributes.name == 'vmm_cred'
+- name: Query existing vmware VMM credential (check mode)
+  aci_vmm_credential: &id004
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: '{{ aci_output_level | default("info") }}'
+    name: vmm_cred
+    domain: vmm_dom
+    vm_provider: vmware
+    state: query
+  check_mode: true
+  register: cm_query_credential
+- name: Query existing vmware VMM credential (normal mode)
+  aci_vmm_credential: *id004
+  register: nm_query_credential
+- name: Query non-existent vmware VMM credential
+  aci_vmm_credential:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: '{{ aci_output_level | default("info") }}'
+    name: vmm_fake_cred
+    domain: vmm_dom
+    vm_provider: vmware
+    state: query
+  register: nm_query_fake_credential
+- name: Query all vmware VMM credentials (check mode)
+  aci_vmm_credential: &id005
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: '{{ aci_output_level | default("info") }}'
+    vm_provider: vmware
+    state: query
+  check_mode: true
+  register: cm_query_all_credential
+- name: Query all vmware VMM credentials (normal mode)
+  aci_vmm_credential: *id005
+  register: nm_query_all_credential
+- name: Verify query_credential
+  assert:
+    that:
+    - cm_query_credential is not changed
+    - nm_query_credential is not changed
+    - nm_query_fake_credential is not changed
+    - cm_query_all_credential is not changed
+    - nm_query_all_credential is not changed
+    - cm_query_credential.current.0.vmmUsrAccP.attributes.name == 'vmm_cred'
+    - nm_query_credential.current.0.vmmUsrAccP.attributes.name == 'vmm_cred'
+    - nm_query_fake_credential.current == []
+    - cm_query_all_credential.current.0.vmmUsrAccP.attributes.name == 'vmm_cred'
+    - nm_query_all_credential.current.0.vmmUsrAccP.attributes.name == 'vmm_cred'
+- name: Remove credential (check_mode)
+  aci_vmm_credential: *id001
+  check_mode: true
+  register: cm_remove_credential_again
+- name: Remove credential (normal_mode)
+  aci_vmm_credential: *id001
+  register: nm_remove_credential_again
+- name: Remove credential (normal_mode)
+  aci_vmm_credential: *id001
+  register: nm_remove_credential_final
+- name: Verify remove_credential
+  assert:
+    that:
+    - cm_remove_credential_again is changed
+    - nm_remove_credential_again is changed
+    - nm_remove_credential_final is not changed
+- name: Remove VMM domain (normal_mode)
+  aci_domain: *id006
+  register: nm_remove_domain_again

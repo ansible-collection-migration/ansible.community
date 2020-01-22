@@ -1,0 +1,397 @@
+- debug: msg="START connection={{ ansible_connection }} nxos_logging basic test"
+- name: Workaround to clear logging logfile size
+  nxos_config:
+    lines:
+    - logging logfile test 1 size 4194304
+  ignore_errors: true
+- name: Purge logging configuration first
+  nxos_logging:
+    purge: true
+- name: Set up console logging
+  nxos_logging: &id001
+    dest: console
+    dest_level: 0
+    state: present
+  register: result
+- assert:
+    that:
+    - result.changed == true
+    - '"logging console 0" in result.commands'
+- name: Set up console logging again (idempotent)
+  nxos_logging: *id001
+  register: result
+- assert: &id003
+    that:
+    - result.changed == false
+- name: Set up console logging with level 2 (edge case)
+  nxos_logging: &id002
+    dest: console
+    dest_level: 2
+    state: present
+  register: result
+- assert:
+    that:
+    - result.changed == true
+    - '"logging console 2" in result.commands'
+- name: Set up console logging with level 2 (edge case) (idempotent)
+  nxos_logging: *id002
+  register: result
+- assert: *id003
+- name: Set Baud Rate to less than 38400
+  nxos_config:
+    lines:
+    - speed 19200
+    parents: line console
+- name: Enable console logging with level 3 (will fail)
+  nxos_logging: &id004
+    dest: console
+    dest_level: 3
+  register: result
+  ignore_errors: true
+- assert:
+    that:
+    - result.failed == true
+- name: Set Baud Rate to 38400
+  nxos_config:
+    lines:
+    - speed 38400
+    parents: line console
+- name: Enable console logging with level 3 (will pass)
+  nxos_logging: *id004
+  register: result
+- assert:
+    that:
+    - result.changed == true
+    - '"logging console 3" in result.commands'
+- block:
+  - name: Logfile logging with level
+    nxos_logging: &id005
+      dest: logfile
+      name: test
+      dest_level: 1
+      state: present
+    register: result
+  - assert:
+      that:
+      - result.changed == true
+      - '"logging logfile test 1" in result.commands'
+  - name: Logfile logging with level (idempotent)
+    nxos_logging: *id005
+    register: result
+  - assert: *id003
+  when: platform is not search('N5K|N7K') and imagetag is not search("A8")
+- name: Configure module with level
+  nxos_logging: &id006
+    dest: module
+    dest_level: 2
+  register: result
+- assert:
+    that:
+    - result.changed == true
+    - '"logging module 2" in result.commands'
+- name: Configure module with level (idempotent)
+  nxos_logging: *id006
+  register: result
+- assert: *id003
+- name: Configure monitor with level
+  nxos_logging: &id007
+    dest: monitor
+    dest_level: 3
+  register: result
+- assert:
+    that:
+    - result.changed == true
+    - '"logging monitor 3" in result.commands'
+- name: Configure monitor with level (idempotent)
+  nxos_logging: *id007
+  register: result
+- assert: *id003
+- name: Configure monitor with level 5 (edge case)
+  nxos_logging: &id008
+    dest: monitor
+    dest_level: 5
+  register: result
+- assert:
+    that:
+    - result.changed == true
+    - '"logging monitor 5" in result.commands'
+- name: Configure monitor with level 5 (edge case) (idempotent)
+  nxos_logging: *id008
+  register: result
+- assert: *id003
+- name: Configure facility with level
+  nxos_logging: &id009
+    facility: daemon
+    facility_level: 4
+  register: result
+- assert:
+    that:
+    - result.changed == true
+    - '"logging level daemon 4" in result.commands'
+- name: Configure facility with level (idempotent)
+  nxos_logging: *id009
+  register: result
+- assert: *id003
+- name: Configure Remote Logging
+  nxos_logging: &id010
+    dest: server
+    remote_server: test-syslogserver.com
+    facility: auth
+    facility_level: 1
+    use_vrf: management
+    state: present
+  register: result
+- assert:
+    that:
+    - result.changed == true
+    - '"logging server test-syslogserver.com 1 facility auth use-vrf management" in
+      result.commands'
+- name: Configure Remote Logging (idempotent)
+  nxos_logging: *id010
+  register: result
+- assert: *id003
+- name: Configure Source Interface for Logging
+  nxos_logging: &id011
+    interface: mgmt0
+  register: result
+- assert:
+    that:
+    - result.changed == true
+    - '"logging source-interface mgmt 0" in result.commands'
+- name: Configure Source Interface for Logging (idempotent)
+  nxos_logging: *id011
+  register: result
+- assert:
+    that:
+    - result.changed == false
+- name: remove logging as collection tearDown
+  nxos_logging: &id012
+    aggregate:
+    - dest: console
+      dest_level: 3
+    - dest: module
+      dest_level: 2
+    - dest: monitor
+      dest_level: 5
+    - dest: logfile
+      dest_level: 1
+      name: test
+    - facility: daemon
+      facility_level: 4
+    - dest: server
+      remote_server: test-syslogserver.com
+      facility: auth
+      facility_level: 1
+      use_vrf: management
+    - interface: mgmt0
+    state: absent
+  register: result
+- assert:
+    that:
+    - result.changed == true
+    - '"no logging logfile" in result.commands'
+    - '"no logging level daemon 4" in result.commands'
+    - '"no logging monitor" in result.commands'
+    - '"no logging module" in result.commands'
+    - '"no logging server test-syslogserver.com" in result.commands'
+    - '"no logging source-interface" in result.commands'
+  when: platform is not search('N5K|N7K') and imagetag is not search("A8")
+- assert:
+    that:
+    - result.changed == true
+    - '"no logging level daemon 4" in result.commands'
+    - '"no logging monitor" in result.commands'
+    - '"no logging module" in result.commands'
+    - '"no logging server test-syslogserver.com" in result.commands'
+    - '"no logging source-interface" in result.commands'
+  when: platform is ansible.community.search('N5K|N7K') or imagetag is ansible.community.search("A8")
+- name: remove aggregate logging (idempotent)
+  nxos_logging: *id012
+  register: result
+- assert: *id003
+- block:
+  - name: Configure Logging message
+    nxos_logging: &id013
+      interface_message: add-interface-description
+      state: present
+    register: result
+  - assert: &id014
+      that:
+      - result.changed == true
+  - name: Configure Logging message (idempotent)
+    nxos_logging: *id013
+    register: result
+  - assert: *id003
+  - name: Remove Logging message
+    nxos_logging:
+      interface_message: add-interface-description
+      state: absent
+    register: result
+  - assert: *id014
+  when: platform is not search('N5K') and imagetag is not search("A8")
+- name: Logfile logging with level and size
+  nxos_logging: &id015
+    dest: logfile
+    name: test
+    dest_level: 1
+    file_size: 16384
+    state: present
+  register: result
+- assert:
+    that:
+    - result.changed == true
+    - '"logging logfile test 1 size 16384" in result.commands'
+- name: Logfile logging with level and size (idempotent)
+  nxos_logging: *id015
+  register: result
+- assert: *id003
+- name: Remove logfile logging with level and size
+  nxos_logging:
+    dest: logfile
+    name: test
+    dest_level: 1
+    file_size: 16384
+    state: absent
+  register: result
+- assert: *id014
+- name: Set up logging event link enable
+  nxos_logging: &id016
+    event: link-enable
+  register: result
+- assert:
+    that:
+    - result.changed == true
+    - '"logging event link-status enable" in result.commands'
+- name: Set up logging event link enable again (idempotent)
+  nxos_logging: *id016
+  register: result
+- assert: *id003
+- name: Remove logging event link enable
+  nxos_logging: &id017
+    event: link-enable
+    state: absent
+  register: result
+- assert: *id014
+- name: Remove logging event link enable again (idempotent)
+  nxos_logging: *id017
+  register: result
+- assert: *id003
+- name: Set up logging event link default
+  nxos_logging: &id018
+    event: link-default
+  register: result
+- assert:
+    that:
+    - result.changed == true
+    - '"logging event link-status default" in result.commands'
+- name: Set up logging event link default again (idempotent)
+  nxos_logging: *id018
+  register: result
+- assert: *id003
+- name: Remove logging event link default
+  nxos_logging: &id019
+    event: link-default
+    state: absent
+  register: result
+- assert: *id014
+- name: Remove logging event link default again (idempotent)
+  nxos_logging: *id019
+  register: result
+- assert: *id003
+- name: Set up logging event trunk enable
+  nxos_logging: &id020
+    event: trunk-enable
+  register: result
+- assert:
+    that:
+    - result.changed == true
+    - '"logging event trunk-status enable" in result.commands'
+- name: Set up logging event trunk enable again (idempotent)
+  nxos_logging: *id020
+  register: result
+- assert: *id003
+- name: Remove logging event trunk enable
+  nxos_logging: &id021
+    event: trunk-enable
+    state: absent
+  register: result
+- assert: *id014
+- name: Remove logging event trunk enable again (idempotent)
+  nxos_logging: *id021
+  register: result
+- assert: *id003
+- name: Set up logging event trunk default
+  nxos_logging: &id022
+    event: trunk-default
+  register: result
+- assert:
+    that:
+    - result.changed == true
+    - '"logging event trunk-status default" in result.commands'
+- name: Set up logging event trunk default again (idempotent)
+  nxos_logging: *id022
+  register: result
+- assert: *id003
+- name: Remove logging event trunk default
+  nxos_logging: &id023
+    event: trunk-default
+    state: absent
+  register: result
+- assert: *id014
+- name: Remove logging event trunk default again (idempotent)
+  nxos_logging: *id023
+  register: result
+- assert: *id003
+- name: Set up Logging Timestamp
+  nxos_logging: &id024
+    timestamp: microseconds
+    state: present
+  register: result
+- assert: *id014
+- name: Set up Logging Timestamp (idempotent)
+  nxos_logging: *id024
+  register: result
+- assert: *id003
+- name: Remove Logging Timestamp
+  nxos_logging:
+    timestamp: microseconds
+    state: absent
+  register: result
+- assert: *id014
+- name: Set up Facility ethpm Link UP Error
+  nxos_logging: &id025
+    facility: ethpm
+    facility_link_status: link-up-error
+    state: present
+  register: result
+- assert: *id014
+- name: Set up Facility ethpm Link UP Error (idempotent)
+  nxos_logging: *id025
+  register: result
+- assert: *id003
+- name: Remove Facility ethpm Link UP Error
+  nxos_logging:
+    facility: ethpm
+    facility_link_status: link-up-error
+    state: absent
+  register: result
+- assert: *id014
+- name: Set up Facility ethpm Link DOWN Error
+  nxos_logging: &id026
+    facility: ethpm
+    facility_link_status: link-down-error
+    state: present
+  register: result
+- assert: *id014
+- name: Set up Facility ethpm Link DOWN Error (idempotent)
+  nxos_logging: *id026
+  register: result
+- assert: *id003
+- name: Remove Facility ethpm Link DOWN Error
+  nxos_logging:
+    facility: ethpm
+    facility_link_status: link-down-error
+    state: absent
+  register: result
+- assert: *id014
+- debug: msg="END connection={{ ansible_connection }} nxos_logging basic test"

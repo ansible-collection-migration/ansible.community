@@ -1,0 +1,85 @@
+- debug: msg="START connection={{ ansible_connection }} nxos_bgp parameter test"
+- set_fact: bgp_best_path_limit="false"
+- set_fact: bgp_best_path_limit="true"
+  when: imagetag is not search("I2")
+- set_fact: bgp_suppress_fib_supported="false"
+- set_fact: bgp_suppress_fib_supported="true"
+  when: imagetag is not search("A8|D1|I2|I4")
+- name: Disable feature BGP
+  nxos_feature:
+    feature: bgp
+    state: disabled
+  ignore_errors: true
+- name: Enable feature BGP
+  nxos_feature:
+    feature: bgp
+    state: enabled
+  ignore_errors: true
+- block:
+  - name: set bestpath limit
+    nxos_bgp: &id001
+      asn: 65535
+      vrf: '{{ item }}'
+      timer_bestpath_limit: 255
+    register: result
+    with_ansible.community.items: '{{ vrfs }}'
+  - assert: &id002
+      that:
+      - result.changed == true
+  - name: Check Idempotence
+    nxos_bgp: *id001
+    register: result
+    with_ansible.community.items: '{{ vrfs }}'
+  - assert: &id004
+      that:
+      - result.changed == false
+  - name: reset bestpath limit
+    nxos_bgp: &id003
+      asn: 65535
+      vrf: '{{ item }}'
+      timer_bestpath_limit: default
+    register: result
+    with_ansible.community.items: '{{ vrfs }}'
+  - assert: *id002
+  - name: Check Idempotence
+    nxos_bgp: *id003
+    register: result
+    when: bgp_best_path_limit
+    with_ansible.community.items: '{{ vrfs }}'
+  - assert: *id004
+    when: bgp_best_path_limit
+  - name: set suppress fib
+    nxos_bgp: &id005
+      asn: 65535
+      suppress_fib_pending: false
+    register: result
+  - assert: *id002
+    when: bgp_suppress_fib_supported
+  - name: Check Idempotence
+    nxos_bgp: *id005
+    register: result
+    when: bgp_suppress_fib_supported
+  - assert: *id004
+    when: bgp_suppress_fib_supported
+  - name: reset suppress fib
+    nxos_bgp: &id006
+      asn: 65535
+      suppress_fib_pending: true
+    register: result
+  - assert: *id002
+    when: bgp_suppress_fib_supported
+  - name: Check Idempotence
+    nxos_bgp: *id006
+    register: result
+    when: bgp_suppress_fib_supported
+  - assert: *id004
+    when: bgp_suppress_fib_supported
+  rescue:
+  - debug: msg="Tests can fail on I2/I4/A8/Fretta or helsinki images"
+  always:
+  - name: Disable feature bgp
+    nxos_feature:
+      feature: bgp
+      state: disabled
+    ignore_errors: true
+  - debug: msg="END connection={{ ansible_connection }} nxos_bgp parameter test"

@@ -1,0 +1,133 @@
+- block:
+  - name: set up aws connection info
+    set_fact:
+      aws_connection_info:
+        aws_access_key: '{{ aws_access_key }}'
+        aws_secret_key: '{{ aws_secret_key }}'
+        security_token: '{{ security_token }}'
+        region: '{{ aws_region }}'
+    no_log: true
+  - name: create ecs cluster
+    ecs_cluster:
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      region: '{{ aws_region }}'
+      name: '{{ resource_prefix }}'
+      state: present
+  - name: create ecs_taskdefinition
+    ecs_taskdefinition:
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      region: '{{ aws_region }}'
+      containers:
+      - name: my_container
+        image: ubuntu
+        memory: 128
+      family: '{{ resource_prefix }}'
+      state: present
+    register: ecs_taskdefinition_creation
+  - name: check if service is still running from a previous task
+    ecs_service_info:
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      region: '{{ aws_region }}'
+      service: '{{ resource_prefix }}'
+      cluster: '{{ resource_prefix }}'
+      details: true
+    register: ecs_service_info_results
+  - name: delay if the service was not inactive
+    debug: var=ecs_service_info_results
+  - name: delay if the service was not inactive
+    pause:
+      seconds: 30
+    when:
+    - ecs_service_info_results.services|length >0
+    - ecs_service_info_results.services[0]['status'] != 'INACTIVE'
+  - name: create ecs_service
+    ecs_service:
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      region: '{{ aws_region }}'
+      name: '{{ resource_prefix }}'
+      cluster: '{{ resource_prefix }}'
+      task_definition: '{{ resource_prefix }}'
+      desired_count: 1
+      state: present
+    register: ecs_service_creation
+  - name: ecs_service works fine even when older botocore is used
+    assert:
+      that:
+      - ecs_service_creation.changed
+  - name: create ecs_service using force_new_deployment
+    ecs_service:
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      region: '{{ aws_region }}'
+      name: '{{ resource_prefix }}'
+      cluster: '{{ resource_prefix }}'
+      task_definition: '{{ resource_prefix }}'
+      desired_count: 1
+      force_new_deployment: true
+      state: present
+    register: ecs_service_creation_force_new_deploy
+    ignore_errors: true
+  - name: check that module returns success
+    assert:
+      that:
+      - ecs_service_creation_force_new_deploy.changed
+  always:
+  - name: scale down ecs service
+    ecs_service:
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      region: '{{ aws_region }}'
+      name: '{{ resource_prefix }}'
+      cluster: '{{ resource_prefix }}'
+      task_definition: '{{ resource_prefix }}'
+      desired_count: 0
+      state: present
+    ignore_errors: true
+  - name: pause to wait for scale down
+    pause:
+      seconds: 30
+  - name: remove ecs service
+    ecs_service:
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      region: '{{ aws_region }}'
+      name: '{{ resource_prefix }}'
+      cluster: '{{ resource_prefix }}'
+      task_definition: '{{ resource_prefix }}'
+      desired_count: 1
+      state: absent
+    ignore_errors: true
+  - name: remove ecs task definition
+    ecs_taskdefinition:
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      region: '{{ aws_region }}'
+      containers:
+      - name: my_container
+        image: ubuntu
+        memory: 128
+      family: '{{ resource_prefix }}'
+      revision: '{{ ecs_taskdefinition_creation.taskdefinition.revision }}'
+      state: absent
+    ignore_errors: true
+  - name: remove ecs cluster
+    ecs_cluster:
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      region: '{{ aws_region }}'
+      name: '{{ resource_prefix }}'
+      state: absent
+    ignore_errors: true

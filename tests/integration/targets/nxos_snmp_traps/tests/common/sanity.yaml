@@ -1,0 +1,54 @@
+- debug: msg="START connection={{ ansible_connection }} nxos_snmp_traps sanity test"
+- name: Setup - Remove snmp_traps if configured
+  nxos_snmp_traps: &id006
+    group: all
+    state: disabled
+- block:
+  - name: Configure one snmp trap group
+    nxos_snmp_traps: &id001
+      group: bridge
+      state: enabled
+    register: result
+  - assert: &id002
+      that:
+      - result.changed == true
+  - name: Idempotence Check
+    nxos_snmp_traps: *id001
+    register: result
+  - assert: &id004
+      that:
+      - result.changed == false
+  - name: Remove snmp trap group
+    nxos_snmp_traps: &id003
+      group: bridge
+      state: disabled
+    register: result
+  - assert: *id002
+  - name: Idempotence Check
+    nxos_snmp_traps: *id003
+    register: result
+  - assert: *id004
+  - name: Configure all snmp trap groups
+    nxos_snmp_traps: &id005
+      group: all
+      state: enabled
+    register: result
+  - assert: *id002
+  - block:
+    - name: Idempotence Check
+      nxos_snmp_traps: *id005
+      register: result
+    - assert: *id004
+    when: imagetag is not search("I2|I7|D1")
+  - name: Cleanup
+    nxos_snmp_traps: *id006
+    register: result
+  - assert: *id002
+  - name: Cleanup Idempotence
+    nxos_snmp_traps: *id006
+    register: result
+  - assert: *id004
+  always:
+  - name: Cleanup
+    nxos_snmp_traps: *id006
+  - debug: msg="END connection={{ ansible_connection }} nxos_snmp_traps sanity test"

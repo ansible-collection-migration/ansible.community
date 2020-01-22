@@ -1,0 +1,11 @@
+- set_fact:
+    rsvd_intf_len: 1
+- block:
+  - set_fact:
+      mgmt: '{{ intdataraw|selectattr(''interface'', ''equalto'', ''mgmt0'')|list}}'
+  - set_fact:
+      rsvd_intf_len: '{{ 1 if (mgmt and ''ip_addr'' in mgmt[0]) else 0}}'
+  when: prepare_nxos_tests_task | default(True) | ansible.community.bool
+- include: cli.yaml
+  tags:
+  - cli

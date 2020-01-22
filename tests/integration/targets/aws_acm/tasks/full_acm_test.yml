@@ -1,0 +1,525 @@
+- name: AWS ACM integration test
+  block:
+  - set_fact:
+      aws_connection_info:
+        aws_region: '{{ aws_region }}'
+        aws_access_key: '{{ aws_access_key }}'
+        aws_secret_key: '{{ aws_secret_key }}'
+        security_token: '{{ security_token }}'
+      no_log: true
+  - name: list certs
+    aws_acm_info:
+      aws_region: '{{ aws_region }}'
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+    register: list_all
+    failed_when: list_all.certificates is not defined
+  - name: ensure absent cert which doesn't exist - first time
+    aws_acm:
+      aws_region: '{{ aws_region }}'
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      name_tag: '{{ item.name }}'
+      state: absent
+    with_ansible.community.items: '{{ local_certs }}'
+  - name: ensure absent cert which doesn't exist - second time
+    aws_acm:
+      aws_region: '{{ aws_region }}'
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      name_tag: '{{ item.name }}'
+      state: absent
+    register: absent_start_two
+    failed_when: absent_start_two.changed
+    with_ansible.community.items: '{{ local_certs }}'
+  - name: list cert which shouldn't exist
+    aws_acm_info:
+      aws_region: '{{ aws_region }}'
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      tags:
+        Name: '{{ item.name }}'
+    register: list_tag
+    failed_when: list_tag.certificates | length > 0
+    with_ansible.community.items: '{{ local_certs }}'
+  - name: check directory was made
+    assert:
+      that:
+      - remote_tmp_dir is defined
+  - name: Generate private key for local certs
+    openssl_privatekey:
+      path: '{{ item.priv_key }}'
+      type: RSA
+      size: 2048
+    with_ansible.community.items: '{{ local_certs }}'
+  - name: Generate an OpenSSL Certificate Signing Request for own certs
+    openssl_csr:
+      path: '{{ item.csr }}'
+      privatekey_path: '{{ item.priv_key }}'
+      common_name: '{{ item.domain }}'
+    with_ansible.community.items: '{{ local_certs }}'
+  - name: Generate a Self Signed OpenSSL certificate for own certs
+    openssl_certificate:
+      provider: selfsigned
+      path: '{{ item.cert }}'
+      csr_path: '{{ item.csr }}'
+      privatekey_path: '{{ item.priv_key }}'
+      signature_algorithms:
+      - sha256WithRSAEncryption
+    with_ansible.community.items: '{{ local_certs }}'
+  - name: upload certificates first time
+    aws_acm:
+      aws_region: '{{ aws_region }}'
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      name_tag: '{{ item.name }}'
+      certificate: '{{ lookup(''file'', item.cert ) }}'
+      private_key: '{{ lookup(''file'', item.priv_key ) }}'
+      state: present
+    register: upload
+    until: upload is ansible.community.succeeded
+    retries: 5
+    delay: 10
+    with_ansible.community.items: '{{ local_certs }}'
+  - assert:
+      that:
+      - prev_task.certificate.arn is defined
+      - ('arn:aws:acm:123' | regex_search( 'arn:aws:acm:' )) is defined
+      - (prev_task.certificate.arn | regex_search( 'arn:aws:acm:' )) is defined
+      - prev_task.certificate.domain_name == original_cert.domain
+      - prev_task.changed
+    vars:
+      original_cert: '{{ item.item }}'
+      prev_task: '{{ item }}'
+    with_ansible.community.items: '{{ upload.results }}'
+  - name: fetch data about cert just uploaded, by ARN
+    aws_acm_info:
+      aws_region: '{{ aws_region }}'
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      certificate_arn: '{{ item.certificate.arn }}'
+    register: fetch_after_up
+    with_ansible.community.items: '{{ upload.results }}'
+  - name: check output of prior task (fetch data about cert just uploaded, by ARN)
+    assert:
+      that:
+      - fetch_after_up_result.certificates | length == 1
+      - fetch_after_up_result.certificates[0].certificate_arn == upload_result.certificate.arn
+      - fetch_after_up_result.certificates[0].domain_name == original_cert.domain
+      - (fetch_after_up_result.certificates[0].certificate | replace( ' ', '' ) |
+        replace( '\n', '')) == (lookup( 'file', original_cert.cert ) | replace( '
+        ', '' ) | replace( '\n', '' ))
+      - '''Name'' in fetch_after_up_result.certificates[0].tags'
+      - fetch_after_up_result.certificates[0].tags['Name'] == original_cert.name
+    vars:
+      fetch_after_up_result: '{{ item }}'
+      upload_result: '{{ item.item }}'
+      original_cert: '{{ item.item.item }}'
+    with_ansible.community.items: '{{ fetch_after_up.results }}'
+  - name: fetch data about cert just uploaded, by name
+    aws_acm_info:
+      aws_region: '{{ aws_region }}'
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      tags:
+        Name: '{{ original_cert.name }}'
+    register: fetch_after_up_name
+    vars:
+      upload_result: '{{ item }}'
+      original_cert: '{{ item.item }}'
+    with_ansible.community.items: '{{ upload.results }}'
+  - name: check fetched data of cert we just uploaded
+    assert:
+      that:
+      - fetch_after_up_name_result.certificates | length == 1
+      - fetch_after_up_name_result.certificates[0].certificate_arn == upload_result.certificate.arn
+      - fetch_after_up_name_result.certificates[0].domain_name == original_cert.domain
+      - (fetch_after_up_name_result.certificates[0].certificate | replace( ' ', ''
+        ) | replace( '\n', '')) == (lookup('file', original_cert.cert ) | replace(
+        ' ', '' ) | replace( '\n', ''))
+      - '''Name'' in fetch_after_up_name_result.certificates[0].tags'
+      - fetch_after_up_name_result.certificates[0].tags['Name'] == original_cert.name
+    vars:
+      fetch_after_up_name_result: '{{ item }}'
+      upload_result: '{{ item.item }}'
+      original_cert: '{{ item.item.item }}'
+    with_ansible.community.items: '{{ fetch_after_up_name.results }}'
+  - name: fetch data about cert just uploaded, by domain name
+    aws_acm_info:
+      aws_region: '{{ aws_region }}'
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      domain_name: '{{ original_cert.domain }}'
+    register: fetch_after_up_domain
+    vars:
+      original_cert: '{{ item.item }}'
+    with_ansible.community.items: '{{ upload.results }}'
+  - name: compare fetched data of cert just uploaded to upload task
+    assert:
+      that:
+      - fetch_after_up_domain_result.certificates | length == 1
+      - fetch_after_up_domain_result.certificates[0].certificate_arn == upload_result.certificate.arn
+      - fetch_after_up_domain_result.certificates[0].domain_name == original_cert.domain
+      - (fetch_after_up_domain_result.certificates[0].certificate | replace( ' ',
+        '' ) | replace( '\n', '')) == (lookup('file', original_cert.cert ) | replace(
+        ' ', '' ) | replace( '\n', ''))
+      - '''Name'' in fetch_after_up_domain_result.certificates[0].tags'
+      - fetch_after_up_domain_result.certificates[0].tags['Name'] == original_cert.name
+    vars:
+      fetch_after_up_domain_result: '{{ item }}'
+      upload_result: '{{ item.item }}'
+      original_cert: '{{ item.item.item }}'
+    with_ansible.community.items: '{{ fetch_after_up_domain.results }}'
+  - name: upload certificates again, check not changed
+    aws_acm:
+      aws_region: '{{ aws_region }}'
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      name_tag: '{{ item.name }}'
+      certificate: '{{ lookup(''file'', item.cert ) }}'
+      private_key: '{{ lookup(''file'', item.priv_key ) }}'
+      state: present
+    register: upload2
+    failed_when: upload2.changed
+    with_ansible.community.items: '{{ local_certs }}'
+  - name: update first cert with body of the second, first time
+    aws_acm:
+      aws_region: '{{ aws_region }}'
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      state: present
+      name_tag: '{{ local_certs[0].name }}'
+      certificate: '{{ lookup(''file'', local_certs[1].cert ) }}'
+      private_key: '{{ lookup(''file'', local_certs[1].priv_key ) }}'
+    register: overwrite
+  - name: check output of previous task (update first cert with body of the second,
+      first time)
+    assert:
+      that:
+      - overwrite.certificate.arn is defined
+      - overwrite.certificate.arn | regex_search( 'arn:aws:acm:' ) is defined
+      - overwrite.certificate.arn == upload.results[0].certificate.arn
+      - overwrite.certificate.domain_name == local_certs[1].domain
+      - overwrite.changed
+  - name: check update was sucessfull
+    aws_acm_info:
+      aws_region: '{{ aws_region }}'
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      tags:
+        Name: '{{ local_certs[0].name }}'
+    register: fetch_after_overwrite
+  - name: check output of update fetch
+    assert:
+      that:
+      - fetch_after_overwrite.certificates | length == 1
+      - fetch_after_overwrite.certificates[0].certificate_arn == fetch_after_up.results[0].certificates[0].certificate_arn
+      - fetch_after_overwrite.certificates[0].domain_name == local_certs[1].domain
+      - (fetch_after_overwrite.certificates[0].certificate | replace( ' ', '' ) |
+        replace( '\n', '')) == (lookup('file', local_certs[1].cert )| replace( ' ',
+        '' ) | replace( '\n', ''))
+      - '''Name'' in fetch_after_overwrite.certificates[0].tags'
+      - fetch_after_overwrite.certificates[0].tags['Name'] == local_certs[0].name
+  - name: fetch other cert
+    aws_acm_info:
+      aws_region: '{{ aws_region }}'
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      tags:
+        Name: '{{ local_certs[1].name }}'
+    register: check_after_overwrite
+  - name: check other cert unaffected
+    assert:
+      that:
+      - check_after_overwrite.certificates | length == 1
+      - check_after_overwrite.certificates[0].certificate_arn == fetch_after_up.results[1].certificates[0].certificate_arn
+      - check_after_overwrite.certificates[0].domain_name == local_certs[1].domain
+      - (check_after_overwrite.certificates[0].certificate  | replace( ' ', '' ) |
+        replace( '\n', '')) == (lookup('file', local_certs[1].cert ) | replace( '
+        ', '' ) | replace( '\n', ''))
+      - '''Name'' in check_after_overwrite.certificates[0].tags'
+      - check_after_overwrite.certificates[0].tags['Name'] == local_certs[1].name
+  - name: update first cert with body of the second again
+    aws_acm:
+      aws_region: '{{ aws_region }}'
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      state: present
+      name_tag: '{{ local_certs[0].name }}'
+      certificate: '{{ lookup(''file'', local_certs[1].cert ) }}'
+      private_key: '{{ lookup(''file'', local_certs[1].priv_key ) }}'
+    register: overwrite2
+  - name: check output of previous task (update first cert with body of the second
+      again)
+    assert:
+      that:
+      - overwrite2.certificate.arn is defined
+      - overwrite2.certificate.arn | regex_search( 'arn:aws:acm:' ) is defined
+      - overwrite2.certificate.arn == upload.results[0].certificate.arn
+      - overwrite2.certificate.domain_name == local_certs[1].domain
+      - not overwrite2.changed
+  - name: delete certs 1 and 2
+    aws_acm:
+      aws_region: '{{ aws_region }}'
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      state: absent
+      domain_name: '{{ local_certs[1].domain }}'
+    register: delete_both
+  - name: test prev task
+    assert:
+      that:
+      - delete_both.arns is defined
+      - check_after_overwrite.certificates[0].certificate_arn in delete_both.arns
+      - upload.results[0].certificate.arn in delete_both.arns
+      - delete_both.changed
+  - name: fetch info for certs 1 and 2
+    aws_acm_info:
+      aws_region: '{{ aws_region }}'
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      tags:
+        Name: '{{ local_certs[item].name }}'
+    register: check_del_one
+    with_ansible.community.items:
+    - 0
+    - 1
+  - name: check certs 1 and 2 were already deleted
+    assert:
+      that: item.certificates | length == 0
+    with_ansible.community.items: '{{ check_del_one.results }}'
+  - name: check cert 3 not deleted
+    aws_acm_info:
+      aws_region: '{{ aws_region }}'
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      tags:
+        Name: '{{ local_certs[2].name }}'
+    register: check_del_one_remain
+    failed_when: check_del_one_remain.certificates | length != 1
+  - name: delete cert 3
+    aws_acm:
+      aws_region: '{{ aws_region }}'
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      state: absent
+      domain_name: '{{ local_certs[2].domain }}'
+    register: delete_third
+  - name: check cert 3 deletion went as expected
+    assert:
+      that:
+      - delete_third.arns is defined
+      - delete_third.arns | length == 1
+      - delete_third.arns[0] == upload.results[2].certificate.arn
+      - delete_third.changed
+  - name: check cert 3 was deleted
+    aws_acm_info:
+      aws_region: '{{ aws_region }}'
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      tags:
+        Name: '{{ local_certs[2].name }}'
+    register: check_del_three
+    failed_when: check_del_three.certificates | length != 0
+  - name: delete cert 3 again
+    aws_acm:
+      aws_region: '{{ aws_region }}'
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      state: absent
+      domain_name: '{{ local_certs[2].domain }}'
+    register: delete_third
+  - name: check deletion of cert 3 not changed, because already deleted
+    assert:
+      that:
+      - delete_third.arns is defined
+      - delete_third.arns | length == 0
+      - not delete_third.changed
+  - name: check directory was made
+    assert:
+      that:
+      - remote_tmp_dir is defined
+  - name: Generate private key for cert to be chained
+    openssl_privatekey:
+      path: '{{ chained_cert.priv_key }}'
+      type: RSA
+      size: 2048
+  - name: Generate two OpenSSL Certificate Signing Requests for cert to be chained
+    openssl_csr:
+      path: '{{ item.csr }}'
+      privatekey_path: '{{ chained_cert.priv_key }}'
+      common_name: '{{ chained_cert.domain }}'
+    with_ansible.community.items: '{{ chained_cert.chains }}'
+  - name: Sign new certs with cert 0 and 1
+    openssl_certificate:
+      provider: ownca
+      path: '{{ item.cert }}'
+      csr_path: '{{ item.csr }}'
+      ownca_path: '{{ local_certs[item.ca].cert }}'
+      ownca_privatekey_path: '{{ local_certs[item.ca].priv_key }}'
+      signature_algorithms:
+      - sha256WithRSAEncryption
+    with_ansible.community.items: '{{ chained_cert.chains }}'
+  - name: check files exist (for next task)
+    file:
+      path: '{{ item }}'
+      state: file
+    with_ansible.community.items:
+    - '{{ local_certs[chained_cert.chains[0].ca].cert }}'
+    - '{{ local_certs[chained_cert.chains[1].ca].cert }}'
+    - '{{ chained_cert.chains[0].cert }}'
+    - '{{ chained_cert.chains[1].cert }}'
+  - name: Find chains
+    certificate_complete_chain:
+      input_chain: '{{ lookup(''file'', item.cert ) }}'
+      root_certificates:
+      - '{{ local_certs[item.ca].cert }}'
+    register: chains
+    with_ansible.community.items: '{{ chained_cert.chains }}'
+  - name: upload chained cert, first chain, first time
+    aws_acm:
+      aws_region: '{{ aws_region }}'
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      name_tag: '{{ chained_cert.name }}'
+      certificate: '{{ lookup(''file'', chained_cert.chains[0].cert ) }}'
+      certificate_chain: '{{ chains.results[0].complete_chain | join(''
+
+        '') }}'
+      private_key: '{{ lookup(''file'', chained_cert.priv_key ) }}'
+      state: present
+    register: upload_chain
+    failed_when: not upload_chain.changed
+  - name: fetch chain of cert we just uploaded
+    aws_acm_info:
+      aws_region: '{{ aws_region }}'
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      tags:
+        Name: '{{ chained_cert.name }}'
+    register: check_chain
+  - name: check chain of cert we just uploaded
+    assert:
+      that:
+      - (check_chain.certificates[0].certificate_chain | replace( ' ', '' ) | replace(
+        '\n', '')) == ( chains.results[0].complete_chain | join( '\n' ) | replace(
+        ' ', '' ) | replace( '\n', '') )
+      - (check_chain.certificates[0].certificate | replace( ' ', '' ) | replace( '\n',
+        '')) == ( lookup('file', chained_cert.chains[0].cert ) | replace( ' ', ''
+        ) | replace( '\n', '') )
+  - name: upload chained cert again, check not changed
+    aws_acm:
+      aws_region: '{{ aws_region }}'
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      name_tag: '{{ chained_cert.name }}'
+      certificate: '{{ lookup(''file'', chained_cert.chains[0].cert ) }}'
+      certificate_chain: '{{ chains.results[0].complete_chain | join(''
+
+        '') }}'
+      private_key: '{{ lookup(''file'', chained_cert.priv_key ) }}'
+      state: present
+    register: upload_chain_2
+  - name: check previous task not changed
+    assert:
+      that:
+      - upload_chain_2.certificate.arn == upload_chain.certificate.arn
+      - not upload_chain_2.changed
+  - name: upload chained cert, different chain
+    aws_acm:
+      aws_region: '{{ aws_region }}'
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      name_tag: '{{ chained_cert.name }}'
+      certificate: '{{ lookup(''file'', chained_cert.chains[1].cert ) }}'
+      certificate_chain: '{{ chains.results[1].complete_chain | join(''
+
+        '') }}'
+      private_key: '{{ lookup(''file'', chained_cert.priv_key ) }}'
+      state: present
+    register: upload_chain_3
+  - name: check uploading with different chain is ansible.community.changed
+    assert:
+      that:
+      - upload_chain_3.changed
+      - upload_chain_3.certificate.arn == upload_chain.certificate.arn
+  - name: fetch info about chain of cert we just updated
+    aws_acm_info:
+      aws_region: '{{ aws_region }}'
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      tags:
+        Name: '{{ chained_cert.name }}'
+    register: check_chain_2
+  - name: check chain of cert we just uploaded
+    assert:
+      that:
+      - (check_chain_2.certificates[0].certificate_chain | replace( ' ', '' ) | replace(
+        '\n', '')) == ( chains.results[1].complete_chain | join( '\n' ) | replace(
+        ' ', '' ) | replace( '\n', '') )
+      - (check_chain_2.certificates[0].certificate | replace( ' ', '' ) | replace(
+        '\n', '')) == ( lookup('file', chained_cert.chains[1].cert ) | replace( '
+        ', '' ) | replace( '\n', '') )
+  - name: delete chained cert
+    aws_acm:
+      aws_region: '{{ aws_region }}'
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      name_tag: '{{ chained_cert.name }}'
+      state: absent
+    register: delete_chain_3
+  - name: check deletion of chained cert 3 is ansible.community.changed
+    assert:
+      that:
+      - delete_chain_3.changed
+      - upload_chain.certificate.arn in delete_chain_3.arns
+  always:
+  - name: delete first bunch of certificates
+    aws_acm:
+      aws_region: '{{ aws_region }}'
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      name_tag: '{{ item.name }}'
+      state: absent
+    ignore_errors: true
+    with_ansible.community.items: '{{ local_certs }}'
+  - name: delete chained cert
+    aws_acm:
+      aws_region: '{{ aws_region }}'
+      aws_access_key: '{{ aws_access_key }}'
+      aws_secret_key: '{{ aws_secret_key }}'
+      security_token: '{{ security_token }}'
+      state: absent
+      name_tag: '{{ chained_cert.name }}'
+    ignore_errors: true
+  - name: deleting local directory with test artefacts
+    file:
+      path: '{{ remote_tmp_dir }}'
+      state: directory
+    ignore_errors: true

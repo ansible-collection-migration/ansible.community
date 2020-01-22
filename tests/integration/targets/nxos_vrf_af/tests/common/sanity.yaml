@@ -1,0 +1,110 @@
+- debug: msg="START connection={{ ansible_connection }} nxos_vrf_af sanity test"
+- name: Configure feature bgp
+  nxos_feature:
+    feature: bgp
+    state: enabled
+- name: Configure feature nv overlay
+  nxos_config:
+    commands: feature nv overlay
+  ignore_errors: true
+- name: Configure nv overlay evpn
+  nxos_config:
+    commands: nv overlay evpn
+  ignore_errors: true
+- block:
+  - name: Configure vrf af ipv4
+    nxos_vrf_af: &id001
+      vrf: ansible
+      afi: ipv4
+      route_target_both_auto_evpn: true
+    register: result
+  - assert: &id002
+      that:
+      - result.changed == true
+  - name: Conf Idempotence
+    nxos_vrf_af: *id001
+    register: result
+  - assert: &id004
+      that:
+      - result.changed == false
+  - name: Configure vrf af ipv6
+    nxos_vrf_af: &id003
+      vrf: ansible
+      afi: ipv6
+      route_target_both_auto_evpn: true
+    register: result
+  - assert: *id002
+  - name: Conf Idempotence
+    nxos_vrf_af: *id003
+    register: result
+  - assert: *id004
+  - name: Remove router target4
+    nxos_vrf_af: &id005
+      vrf: ansible
+      afi: ipv4
+      route_target_both_auto_evpn: false
+    register: result
+  - assert: *id002
+  - name: Conf Idempotence
+    nxos_vrf_af: *id005
+    register: result
+  - assert: *id004
+  - name: Remove router target6
+    nxos_vrf_af: &id006
+      vrf: ansible
+      afi: ipv6
+      route_target_both_auto_evpn: false
+    register: result
+  - assert: *id002
+  - name: Conf Idempotence
+    nxos_vrf_af: *id006
+    register: result
+  - assert: *id004
+  - name: Remove vrf af v6
+    nxos_vrf_af: &id007
+      vrf: ansible
+      afi: ipv6
+      route_target_both_auto_evpn: true
+      state: absent
+    register: result
+  - assert: *id002
+  - pause:
+      seconds: 30
+  - name: Remove Idempotence
+    nxos_vrf_af: *id007
+    register: result
+  - assert: *id004
+  - name: Remove vrf af v4
+    nxos_vrf_af: &id008
+      vrf: ansible
+      afi: ipv4
+      route_target_both_auto_evpn: true
+      state: absent
+    register: result
+  - assert: *id002
+  - pause:
+      seconds: 30
+  - name: Remove Idempotence
+    nxos_vrf_af: *id008
+    register: result
+  - assert: *id004
+  when: not platform is ansible.community.search("N35|N3L")
+  always:
+  - name: Remove vrf
+    nxos_config:
+      commands: no vrf context ansible
+    ignore_errors: true
+  - name: Remove nv overlay evpn
+    nxos_config:
+      commands: no nv overlay evpn
+    ignore_errors: true
+  - name: Remove feature nv overlay
+    nxos_config:
+      commands: no feature nv overlay
+    ignore_errors: true
+  - name: Remove feature bgp
+    nxos_feature:
+      feature: bgp
+      state: disabled
+    ignore_errors: true
+- debug: msg="END connection={{ ansible_connection }} nxos_vrf_af sanity test"

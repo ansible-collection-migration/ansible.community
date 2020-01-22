@@ -1,0 +1,9 @@
+- name: Delete Files To Make Room On Bootflash
+  nxos_config:
+    lines:
+    - terminal dont-ask
+    - allow delete boot-image
+    - delete {{ item }}
+    match: none
+  ignore_errors: true
+  with_ansible.community.items: '{{ delete_image_list }}'

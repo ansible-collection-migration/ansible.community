@@ -1,0 +1,191 @@
+- debug: msg="START connection={{ ansible_connection }} nxos_vxlan_vtep_vni sanity
+    test"
+- block:
+  - name: Apply N7K specific setup config
+    include: targets/nxos_vxlan_vtep/tasks/platform/n7k/setup.yaml
+    when: platform is ansible.community.match('N7K')
+  - name: Enable feature nv overlay
+    nxos_config:
+      commands:
+      - feature nv overlay
+      match: none
+  - name: configure vxlan_vtep
+    nxos_vxlan_vtep:
+      interface: nve1
+      host_reachability: true
+  - name: configure vxlan_vtep_vni assoc-vrf
+    nxos_vxlan_vtep_vni: &id001
+      interface: nve1
+      vni: 6000
+      assoc_vrf: true
+    register: result
+  - assert: &id002
+      that:
+      - result.changed == true
+  - name: Conf 1 Idempotence
+    nxos_vxlan_vtep_vni: *id001
+    register: result
+  - assert: &id004
+      that:
+      - result.changed == false
+  - name: remove vxlan_vtep_vni
+    nxos_vxlan_vtep_vni:
+      interface: nve1
+      vni: 6000
+      assoc_vrf: true
+      state: absent
+  - name: configure vxlan_vtep_vni
+    nxos_vxlan_vtep_vni:
+      interface: nve1
+      vni: 8000
+    register: result
+  - assert: *id002
+  - name: configure vxlan_vtep_vni mcast
+    nxos_vxlan_vtep_vni: &id003
+      interface: nve1
+      vni: 8000
+      multicast_group: 224.1.1.1
+    register: result
+  - assert: *id002
+  - name: Conf 3 Idempotence
+    nxos_vxlan_vtep_vni: *id003
+    register: result
+  - assert: *id004
+  - name: configure vxlan_vtep_vni default mcast
+    nxos_vxlan_vtep_vni: &id005
+      interface: nve1
+      vni: 8000
+      multicast_group: default
+    register: result
+  - assert: *id002
+  - name: Conf 4 Idempotence
+    nxos_vxlan_vtep_vni: *id005
+    register: result
+  - assert: *id004
+  - name: remove config
+    nxos_vxlan_vtep_vni: &id013
+      interface: nve1
+      vni: 8000
+      state: absent
+  - name: configure vxlan_vtep
+    nxos_vxlan_vtep:
+      interface: nve1
+      host_reachability: false
+  - block:
+    - name: configure vxlan_vtep_vni
+      nxos_vxlan_vtep_vni:
+        interface: nve1
+        vni: 8000
+      register: result
+    - assert: *id002
+    - name: configure vxlan_vtep_vni ingress static
+      nxos_vxlan_vtep_vni: &id006
+        interface: nve1
+        vni: 8000
+        ingress_replication: static
+      register: result
+    - assert: *id002
+    - name: check configure vxlan_vtep_vni ingress static idempotence check
+      nxos_vxlan_vtep_vni: *id006
+      register: result
+    - assert: *id004
+    - name: Remove and reconfigure vxlan_vtep
+      nxos_vxlan_vtep: &id009
+        interface: nve1
+        state: absent
+    - name: Configure vxlan_vtep with host reachability bgp
+      nxos_vxlan_vtep:
+        interface: nve1
+        host_reachability: true
+    - name: configure vxlan_vtep_vni
+      nxos_vxlan_vtep_vni: &id010
+        interface: nve1
+        vni: 8000
+    - name: configure vxlan_vtep_vni ingress bgp
+      nxos_vxlan_vtep_vni: &id007
+        interface: nve1
+        vni: 8000
+        ingress_replication: bgp
+      register: result
+    - assert: *id002
+    - name: Conf 7 Idempotence
+      nxos_vxlan_vtep_vni: *id007
+      register: result
+    - assert: *id004
+    - name: remove ingress_repl
+      nxos_vxlan_vtep_vni: &id008
+        interface: nve1
+        vni: 8000
+        ingress_replication: default
+      register: result
+    - assert: *id002
+    - name: Conf 8 Idempotence
+      nxos_vxlan_vtep_vni: *id008
+      register: result
+    - assert: *id004
+    - name: Remove and reconfigure vxlan_vtep
+      nxos_vxlan_vtep: *id009
+    - name: Configure vxlan_vtep with host reachability static
+      nxos_vxlan_vtep:
+        interface: nve1
+        host_reachability: false
+    - name: configure vxlan_vtep_vni
+      nxos_vxlan_vtep_vni: *id010
+    - name: configure vxlan_vtep_vni peer-list
+      nxos_vxlan_vtep_vni: &id011
+        interface: nve1
+        vni: 8000
+        peer_list:
+        - 192.0.2.1
+        - 192.0.2.2
+        - 192.0.2.3
+        - 192.0.2.4
+        ingress_replication: static
+      register: result
+    - assert: *id002
+    - name: Conf 9 Idempotence
+      nxos_vxlan_vtep_vni: *id011
+      register: result
+    - assert: *id004
+    - name: configure vxlan_vtep_vni default peer-list
+      nxos_vxlan_vtep_vni: &id012
+        interface: nve1
+        vni: 8000
+        peer_list: default
+        ingress_replication: static
+      register: result
+    - assert: *id002
+    - name: Conf 10 Idempotence
+      nxos_vxlan_vtep_vni: *id012
+      register: result
+    - assert: *id004
+    - name: Conf 9 again
+      nxos_vxlan_vtep_vni: *id011
+      register: result
+    - assert: *id002
+    - name: remove vxlan_vtep_vni
+      nxos_vxlan_vtep_vni: *id013
+      register: result
+    - assert: *id002
+    - name: remove Idempotence
+      nxos_vxlan_vtep_vni: *id013
+      register: result
+    - assert: *id004
+    when: (platform is ansible.community.search('N9K'))
+  when: (platform is ansible.community.search("N7K|N9K"))
+  always:
+  - name: Apply N7K specific cleanup config
+    include: targets/nxos_vxlan_vtep/tasks/platform/n7k/cleanup.yaml
+    when: platform is ansible.community.match('N7K')
+  - name: remove vxlan_vtep
+    nxos_vxlan_vtep:
+      interface: nve1
+      shutdown: true
+      state: absent
+    ignore_errors: true
+  - name: Disable feature nv overlay
+    nxos_feature:
+      feature: nve
+      state: disabled
+    ignore_errors: true
+- debug: msg="END connection={{ ansible_connection }} nxos_vxlan_vtep_vni sanity test"

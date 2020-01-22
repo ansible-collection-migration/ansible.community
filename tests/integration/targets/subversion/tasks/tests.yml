@@ -1,0 +1,84 @@
+- name: initial checkout
+  subversion:
+    repo: '{{ subversion_repo_url }}'
+    dest: '{{ subversion_test_dir }}/svn'
+  register: subverted
+- name: check if dir was checked out
+  stat:
+    path: '{{ subversion_test_dir }}/svn'
+  register: subverted_result
+- name: verify information about the initial clone
+  assert:
+    that:
+    - '''after'' in subverted'
+    - 'subverted.after.1 == ''URL: '' ~ subversion_repo_url'
+    - not subverted.before
+    - subverted.changed
+    - subverted_result.stat.exists
+- name: repeated checkout
+  subversion:
+    repo: '{{ subversion_repo_url }}'
+    dest: '{{ subversion_test_dir }}/svn'
+  register: subverted2
+- name: verify on a reclone things are marked unchanged
+  assert:
+    that:
+    - not subverted2.changed
+- name: check for tags
+  stat: path={{ subversion_test_dir }}/svn/tags
+  register: tags
+- name: check for trunk
+  stat: path={{ subversion_test_dir }}/svn/trunk
+  register: trunk
+- name: check for branches
+  stat: path={{ subversion_test_dir }}/svn/branches
+  register: branches
+- name: assert presence of tags/trunk/branches
+  assert:
+    that:
+    - tags.stat.isdir
+    - trunk.stat.isdir
+    - branches.stat.isdir
+- name: remove checked out repo
+  file:
+    path: '{{ subversion_test_dir }}/svn'
+    state: absent
+- name: checkout with quotes in username
+  subversion:
+    repo: '{{ subversion_repo_auth_url }}'
+    dest: '{{ subversion_test_dir }}/svn'
+    username: '{{ subversion_username }}'
+    password: '{{ subversion_password }}'
+  register: subverted3
+- name: get result of checkout with quotes in username
+  stat:
+    path: '{{ subversion_test_dir }}/svn'
+  register: subverted3_result
+- name: assert checkout with quotes in username
+  assert:
+    that:
+    - subverted3 is changed
+    - subverted3_result.stat.exists
+    - subverted3_result.stat.isdir
+- name: checkout with export
+  subversion:
+    repo: '{{ subversion_repo_url }}'
+    dest: '{{ subversion_test_dir }}/svn-export'
+    export: true
+  register: subverted4
+- name: check for tags
+  stat: path={{ subversion_test_dir }}/svn-export/tags
+  register: export_tags
+- name: check for trunk
+  stat: path={{ subversion_test_dir }}/svn-export/trunk
+  register: export_trunk
+- name: check for branches
+  stat: path={{ subversion_test_dir }}/svn-export/branches
+  register: export_branches
+- name: assert presence of tags/trunk/branches in export
+  assert:
+    that:
+    - export_tags.stat.isdir
+    - export_trunk.stat.isdir
+    - export_branches.stat.isdir
+    - subverted4.changed

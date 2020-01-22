@@ -1,0 +1,234 @@
+- name: Test that we have an ACI APIC host, ACI username and ACI password
+  fail:
+    msg: 'Please define the following variables: aci_hostname, aci_username and aci_password.'
+  when: aci_hostname is not defined or aci_username is not defined or aci_password
+    is not defined
+- name: Remove fabric node
+  aci_fabric_node: &id003
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: '{{ aci_output_level | default("info") }}'
+    serial: ansible_test
+    node_id: 105
+    state: absent
+- name: Add fabric node (check_mode)
+  aci_fabric_node: &id001
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: debug
+    serial: ansible_test
+    node_id: 105
+    switch: test
+    state: present
+  check_mode: true
+  register: cm_add_fabric_node
+- name: Add fabric node (normal mode)
+  aci_fabric_node: *id001
+  register: nm_add_fabric_node
+- name: Add fabric node again (check_mode)
+  aci_fabric_node: *id001
+  check_mode: true
+  register: cm_add_fabric_node_again
+- name: Add fabric node again (normal mode)
+  aci_fabric_node: *id001
+  register: nm_add_fabric_node_again
+- name: Verify add_fabric_node
+  assert:
+    that:
+    - cm_add_fabric_node is changed
+    - nm_add_fabric_node is changed
+    - cm_add_fabric_node_again is not changed
+    - nm_add_fabric_node_again is not changed
+- name: Change description of fabric node (check_mode)
+  aci_fabric_node:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: debug
+    serial: ansible_test
+    node_id: 105
+    switch: test
+    state: present
+    description: Ansible test fabric node
+  check_mode: true
+  register: cm_add_fabric_node_descr
+- name: Change description of fabric node (normal mode)
+  aci_fabric_node:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: debug
+    serial: ansible_test
+    node_id: 105
+    switch: test
+    state: present
+    description: Ansible test fabric node
+  register: nm_add_fabric_node_descr
+- name: Change description of fabric nodeagain (check_mode)
+  aci_fabric_node:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: debug
+    serial: ansible_test
+    node_id: 105
+    switch: test
+    state: present
+    description: Ansible test fabric node
+  check_mode: true
+  register: cm_add_fabric_node_descr_again
+- name: Change description of fabric node again (normal mode)
+  aci_fabric_node:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: debug
+    serial: ansible_test
+    node_id: 105
+    switch: test
+    state: present
+    description: Ansible test fabric node
+  register: nm_add_fabric_node_descr_again
+- name: Verify add_fabric_node_descr
+  assert:
+    that:
+    - cm_add_fabric_node_descr is changed
+    - nm_add_fabric_node_descr is changed
+    - cm_add_fabric_node_descr_again is not changed
+    - nm_add_fabric_node_descr_again is not changed
+- name: Add fabric node again with no description (check_mode)
+  aci_fabric_node: *id001
+  check_mode: true
+  register: cm_add_fabric_node_again_no_descr
+- name: Add fabric node again with no description (normal mode)
+  aci_fabric_node: *id001
+  register: nm_add_fabric_node_again_no_descr
+- name: Verify add_fabric_node_again_no_descr
+  assert:
+    that:
+    - cm_add_fabric_node_again_no_descr is not changed
+    - nm_add_fabric_node_again_no_descr is not changed
+- name: Query fabric nodes (check_mode)
+  aci_fabric_node: &id002
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: '{{ aci_output_level | default("info") }}'
+    state: query
+  check_mode: true
+  register: cm_query_all_fabric_nodes
+- name: Query all fabric nodes (normal mode)
+  aci_fabric_node: *id002
+  register: nm_query_all_fabric_nodes
+- name: Verify query_all_fabric_nodes
+  assert:
+    that:
+    - cm_query_all_fabric_nodes is not changed
+    - nm_query_all_fabric_nodes is not changed
+    - cm_query_all_fabric_nodes == nm_query_all_fabric_nodes
+- name: Query our fabric_node
+  aci_fabric_node:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: '{{ aci_output_level | default("info") }}'
+    state: query
+    serial: ansible_test
+  check_mode: true
+  register: cm_query_fabric_node
+- name: Query our fabric_node
+  aci_fabric_node:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: '{{ aci_output_level | default("info") }}'
+    state: query
+    serial: ansible_test
+  register: nm_query_fabric_node
+- name: Verify query_fabric_node
+  assert:
+    that:
+    - cm_query_fabric_node is not changed
+    - nm_query_fabric_node is not changed
+    - cm_query_fabric_node == nm_query_fabric_node
+- name: Remove fabric_node (check_mode)
+  aci_fabric_node: *id003
+  check_mode: true
+  register: cm_remove_fabric_node
+- name: Remove fabric_node (normal mode)
+  aci_fabric_node: *id003
+  register: nm_remove_fabric_node
+- name: Remove fabric_node again (check_mode)
+  aci_fabric_node: *id003
+  check_mode: true
+  register: cm_remove_fabric_node_again
+- name: Remove fabric_node again (normal mode)
+  aci_fabric_node: *id003
+  register: nm_remove_fabric_node_again
+- name: Verify remove_fabric_node
+  assert:
+    that:
+    - cm_remove_fabric_node is changed
+    - nm_remove_fabric_node is changed
+    - cm_remove_fabric_node_again is not changed
+    - nm_remove_fabric_node_again is not changed
+- name: Query non-existing fabric_node (check_mode)
+  aci_fabric_node:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: '{{ aci_output_level | default("info") }}'
+    state: query
+    serial: ansible_test
+  check_mode: true
+  register: cm_query_non_fabric_node
+- name: Query non-existing fabric_node (normal mode)
+  aci_fabric_node:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: '{{ aci_output_level | default("info") }}'
+    state: query
+    serial: ansible_test
+  register: nm_query_non_fabric_node
+- name: Verify query_non_fabric_node
+  assert:
+    that:
+    - cm_query_non_fabric_node is not changed
+    - nm_query_non_fabric_node is not changed
+    - cm_query_non_fabric_node == nm_query_non_fabric_node

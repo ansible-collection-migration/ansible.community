@@ -1,0 +1,53 @@
+- debug: msg="START cli/set_lookup_source.yaml on connection={{ ansible_connection
+    }}"
+- name: setup
+  ios_config:
+    lines:
+    - no ip domain lookup source-interface Loopback888
+    - vrf definition ansible
+    match: none
+    provider: '{{ cli }}'
+- name: configure lookup_source
+  ios_system:
+    lookup_source: Loopback888
+    provider: '{{ cli }}'
+  register: result
+- assert:
+    that:
+    - result.changed == true
+    - '''ip domain lookup source-interface Loopback888'' in result.commands'
+- name: verify lookup_source
+  ios_system:
+    lookup_source: Loopback888
+    provider: '{{ cli }}'
+  register: result
+- assert:
+    that:
+    - result.changed == false
+- name: Disable lookup_source
+  ios_system:
+    lookup_enabled: false
+    provider: '{{ cli }}'
+  register: result
+- assert:
+    that:
+    - result.changed == true
+    - '''no ip domain lookup'' in result.commands'
+- name: Disable lookup_source
+  ios_system:
+    lookup_enabled: true
+    provider: '{{ cli }}'
+  register: result
+- assert:
+    that:
+    - result.changed == true
+    - '''ip domain lookup'' in result.commands'
+- name: teardown
+  ios_config:
+    lines:
+    - no ip domain lookup source-interface Loopback888
+    - no vrf definition ansible
+    match: none
+    provider: '{{ cli }}'
+  ignore_errors: true
+- debug: msg="END cli/set_lookup_source.yaml on connection={{ ansible_connection }}"

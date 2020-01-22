@@ -1,0 +1,11 @@
+- hosts: testhost
+  gather_facts: false
+  tasks:
+  - set_fact:
+      output_dir: '{{ lookup(''env'', ''OUTPUT_DIR'') }}'
+  - file:
+      path: '{{ output_dir }}/café.txt'
+      state: absent
+  - template:
+      src: templates/café.j2
+      dest: '{{ output_dir }}/café.txt'

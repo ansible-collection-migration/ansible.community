@@ -1,0 +1,1 @@
+remote_dir: '{{ lookup(''ansible.community.env'', ''OUTPUT_DIR'') }}'

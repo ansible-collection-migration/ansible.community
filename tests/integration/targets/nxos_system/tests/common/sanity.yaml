@@ -1,0 +1,94 @@
+- debug: msg="START connection={{ ansible_connection }}/sanity.yaml"
+- block:
+  - name: remove configuration
+    nxos_system: &id010
+      state: absent
+    register: result
+    ignore_errors: true
+  - name: configure domain lookup
+    nxos_system: &id007
+      domain_lookup: true
+      state: present
+    register: result
+  - name: configure hostname and domain-name
+    nxos_system: &id001
+      hostname: switch
+      domain_name: test.example.com
+    register: result
+  - assert: &id002
+      that:
+      - result.changed == true
+  - name: Idempotence check
+    nxos_system: *id001
+    register: result
+  - assert: &id004
+      that:
+      - result.changed == false
+  - name: configure name servers
+    nxos_system: &id003
+      name_servers:
+      - 8.8.8.8
+      - 8.8.4.4
+    register: result
+  - assert: *id002
+  - name: Idempotence check
+    nxos_system: *id003
+    register: result
+  - assert: *id004
+  - name: configure name servers with VRF support
+    nxos_system: &id005
+      name_servers:
+      - server: 8.8.8.8
+        vrf: management
+      - server: 8.8.4.4
+        vrf: management
+    register: result
+  - assert: *id002
+  - name: Idempotence check
+    nxos_system: *id005
+    register: result
+  - assert: *id004
+  - name: configure domain lookup1
+    nxos_system: &id006
+      domain_lookup: false
+    register: result
+  - assert: *id002
+  - name: Idempotence check
+    nxos_system: *id006
+    register: result
+  - assert: *id004
+  - name: configure domain lookup2
+    nxos_system: *id007
+    register: result
+  - assert: *id002
+  - name: Idempotence check
+    nxos_system: *id007
+    register: result
+  - assert: *id004
+  - name: configure system mtu
+    nxos_system: &id008
+      system_mtu: 3000
+    register: result
+  - assert: *id002
+  - name: Idempotence check
+    nxos_system: *id008
+    register: result
+  - assert: *id004
+  - name: default configuration
+    nxos_system: &id009
+      hostname: default
+      domain_name: default
+      name_servers: default
+      system_mtu: default
+    register: result
+  - assert: *id002
+  - name: Idempotence check
+    nxos_system: *id009
+    register: result
+  - assert: *id004
+  always:
+  - name: remove configuration
+    nxos_system: *id010
+  - name: Re-configure hostname
+    nxos_system: *id001
+  - debug: msg="END connection={{ ansible_connection }}/sanity.yaml"

@@ -1,0 +1,20 @@
+- name: add a host to the runtime inventory
+  add_host:
+    name: newdynamichost
+    groups: newdynamicgroup
+    a_var: from add_host
+- debug: msg={{hostvars['newdynamichost'].group_names}}
+- name: ensure that dynamically-added host is visible via hostvars, groups, etc (there
+    are several caches that could break this)
+  assert:
+    that:
+    - hostvars['bogushost'] is not defined
+    - hostvars['newdynamichost'] is defined
+    - hostvars['newdynamichost'].group_names is defined
+    - '''newdynamicgroup'' in hostvars[''newdynamichost''].group_names'
+    - hostvars['newdynamichost']['bogusvar'] is not defined
+    - hostvars['newdynamichost']['a_var'] is defined
+    - hostvars['newdynamichost']['a_var'] == 'from add_host'
+    - groups['bogusgroup'] is not defined
+    - groups['newdynamicgroup'] is defined
+    - '''newdynamichost'' in groups[''newdynamicgroup'']'

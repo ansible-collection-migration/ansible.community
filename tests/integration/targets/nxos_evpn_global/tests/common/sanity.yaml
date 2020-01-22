@@ -1,0 +1,51 @@
+- debug: msg="START connection={{ ansible_connection }} nxos_evpn_global sanity test"
+- name: Setup
+  nxos_config: &id005
+    lines: no nv overlay evpn
+    match: none
+  ignore_errors: true
+- name: Disable feature nv overlay
+  nxos_feature: &id006
+    feature: nv overlay
+    state: disabled
+  ignore_errors: true
+- block:
+  - name: Enable feature nv overlay
+    nxos_feature:
+      feature: nv overlay
+      state: enabled
+    ignore_errors: true
+  - name: Enable nv overlay evpn
+    nxos_evpn_global: &id001
+      nv_overlay_evpn: true
+    register: result
+  - assert: &id002
+      that:
+      - result.changed == true
+  - name: CHECK IDEMPOTENCE - enable nv overlay evpn
+    nxos_evpn_global: *id001
+    register: result
+  - assert: &id004
+      that:
+      - result.changed == false
+  - name: Disable nv overlay evpn
+    nxos_evpn_global: &id003
+      nv_overlay_evpn: false
+    register: result
+  - assert: *id002
+  - name: CHECK DEMPOTENCE - Disable nv overlay evpn
+    nxos_evpn_global: *id003
+    register: result
+  - assert: *id004
+  when: not ( platform is ansible.community.search('N3K|N35|N3L'))
+  rescue:
+  - debug: msg="connection={{ ansible_connection }} nxos_evpn_global sanity test -
+      FALURE ENCOUNTERED"
+  always:
+  - name: Cleanup - Disable nv overlay evpn
+    nxos_config: *id005
+    ignore_errors: true
+  - name: Cleanup - Disable feature nv overlay
+    nxos_feature: *id006
+    ignore_errors: true
+  - debug: msg="END connection={{ ansible_connection }} nxos_evpn_global sanity test"

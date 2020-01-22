@@ -1,0 +1,68 @@
+- debug: msg="START connection={{ ansible_connection }} nxos_udld sanity test"
+- set_fact: udld_run="true"
+- set_fact: udld_run="false"
+  when: ((platform is ansible.community.search('N9K-F')) and (imagetag and (imagetag
+    is ansible.community.version_compare('F3', 'lt'))))
+- set_fact: udld_run="false"
+  when: titanium
+- block:
+  - name: Enable feature udld
+    nxos_feature:
+      feature: udld
+      state: enabled
+  - name: Configure udld
+    nxos_udld: &id001
+      aggressive: enabled
+      msg_time: 20
+    register: result
+  - assert: &id002
+      that:
+      - result.changed == true
+  - name: Check Idempotence
+    nxos_udld: *id001
+    register: result
+  - assert: &id004
+      that:
+      - result.changed == false
+  - name: Reset udld
+    nxos_udld:
+      reset: true
+  - name: Configure udld2
+    nxos_udld: &id003
+      aggressive: disabled
+    register: result
+  - assert: *id002
+  - name: Check Idempotence
+    nxos_udld: *id003
+    register: result
+  - assert: *id004
+  - name: Configure udld3
+    nxos_udld: &id005
+      msg_time: default
+    register: result
+  - assert: *id002
+  - name: Check Idempotence
+    nxos_udld: *id005
+    register: result
+  - assert: *id004
+  - name: Configure udld again
+    nxos_udld: *id001
+    register: result
+  - assert: *id002
+  - name: Remove udld config
+    nxos_udld: &id006
+      state: absent
+    register: result
+  - assert: *id002
+  - name: Check Idempotence
+    nxos_udld: *id006
+    register: result
+  - assert: *id004
+  when: udld_run
+  always:
+  - name: Disable udld
+    nxos_feature:
+      feature: udld
+      state: disabled
+    ignore_errors: true
+- debug: msg="END connection={{ ansible_connection }} nxos_udld sanity test"

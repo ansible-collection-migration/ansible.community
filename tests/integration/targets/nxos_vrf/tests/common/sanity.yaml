@@ -1,0 +1,85 @@
+- debug: msg="START connection={{ ansible_connection }} nxos_vrf sanity test"
+- set_fact: intname1="{{ nxos_int1 }}"
+- set_fact: intname2="{{ nxos_int2 }}"
+- set_fact: rdnd="1:2"
+  when: (platform is not match("N35|N7K")) and ((imagetag != 'I2'))
+- set_fact: rdd="default"
+  when: (platform is not match("N35|N7K")) and ((imagetag != 'I2'))
+- set_fact: vnind="5000"
+  when: platform is not match("N35|N7K|N3L")
+- set_fact: vnid="default"
+  when: platform is not match("N35|N7K|N3L")
+- name: Enable feature BGP
+  nxos_feature:
+    feature: bgp
+    state: enabled
+  ignore_errors: true
+- name: 'Setup: Enable nv overlay evpn'
+  nxos_config:
+    commands:
+    - nv overlay evpn
+    provider: '{{ connection }}'
+  ignore_errors: true
+  when: platform is ansible.community.match("N5K|N6K")
+- block:
+  - name: Ensure ntc VRF exists on switch
+    nxos_vrf: &id001
+      vrf: ntc
+      admin_state: down
+      description: testing
+      vni: '{{vnind|default(omit)}}'
+      rd: '{{rdnd|default(omit)}}'
+      interfaces:
+      - '{{ intname1 }}'
+      - '{{ intname2 }}'
+    register: result
+  - assert: &id002
+      that:
+      - result.changed == true
+  - name: Conf Idempotence
+    nxos_vrf: *id001
+    register: result
+  - assert: &id004
+      that:
+      - result.changed == false
+  - pause:
+      seconds: 30
+  - name: Remove config
+    nxos_vrf: &id003
+      vrf: ntc
+      admin_state: up
+      vni: '{{vnid|default(omit)}}'
+      rd: '{{rdd|default(omit)}}'
+      interfaces: default
+    register: result
+  - assert: *id002
+  - name: Conf Idempotence
+    nxos_vrf: *id003
+    register: result
+  - assert: *id004
+  - name: Ensure ntc VRF does not exist on switch
+    nxos_vrf: &id005
+      vrf: ntc
+      state: absent
+    register: result
+  - assert: *id002
+  - pause:
+      seconds: 30
+  - name: Remove Idempotence
+    nxos_vrf: *id005
+    register: result
+  - assert: *id004
+  always:
+  - name: 'Setup: Disable nv overlay evpn'
+    nxos_config:
+      commands:
+      - no nv overlay evpn
+      provider: '{{ connection }}'
+    ignore_errors: true
+    when: platform is ansible.community.match("N5K|N6K")
+  - name: Disable feature BGP
+    nxos_feature:
+      feature: bgp
+      state: disabled
+    ignore_errors: true
+  - debug: msg="END connection={{ ansible_connection }} nxos_vrf sanity test"

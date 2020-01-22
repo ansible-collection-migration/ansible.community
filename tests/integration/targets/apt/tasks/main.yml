@@ -1,0 +1,17 @@
+- block:
+  - include: apt.yml
+  - include: apt-multiarch.yml
+    when:
+    - ansible_userspace_architecture != apt_foreign_arch
+  - include: apt-builddep.yml
+  - block:
+    - include: repo.yml
+    always:
+    - file:
+        path: /etc/apt/sources.list.d/file_tmp_repo.list
+        state: absent
+    - file:
+        name: '{{ repodir }}'
+        state: absent
+  when:
+  - ansible_distribution in ('Ubuntu', 'Debian')

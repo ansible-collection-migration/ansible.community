@@ -1,0 +1,79 @@
+- debug: msg="START connection={{ ansible_connection }} nxos_gir_profile_management
+    sanity test"
+- name: Setup - Remove maintenace mode profiles
+  nxos_gir_profile_management: &id005
+    mode: maintenance
+    state: absent
+  ignore_errors: true
+- name: Setup - Remove normal mode profiles
+  nxos_gir_profile_management: &id006
+    mode: normal
+    state: absent
+  ignore_errors: true
+- name: Setup - Turn on feature eigrp
+  nxos_feature:
+    feature: eigrp
+    state: enabled
+  ignore_errors: true
+- block:
+  - name: Create maintenace mode profile
+    nxos_gir_profile_management: &id001
+      mode: maintenance
+      commands:
+      - router eigrp 11
+      - isolate
+      state: present
+    register: result
+  - assert: &id002
+      that:
+      - result.changed == true
+  - name: Check Idempotence - Create maintenace mode profile
+    nxos_gir_profile_management: *id001
+    register: result
+  - assert: &id004
+      that:
+      - result.changed == false
+  - name: Create normal mode profile
+    nxos_gir_profile_management: &id003
+      mode: normal
+      commands:
+      - router eigrp 11
+      - isolate
+      state: present
+    register: result
+  - assert: *id002
+  - name: Check Idempotence - Create normal mode profile
+    nxos_gir_profile_management: *id003
+    register: result
+  - assert: *id004
+  - name: Remove maintenance mode profile
+    nxos_gir_profile_management: *id005
+    register: result
+  - assert: *id002
+  - name: Check Idempotence - Remove maintenance mode profile
+    nxos_gir_profile_management: *id005
+    register: result
+  - assert: *id004
+  - name: Remove normal mode profile
+    nxos_gir_profile_management: *id006
+    register: result
+  - assert: *id002
+  - name: Check Idempotence - Remove normal mode profile
+    nxos_gir_profile_management: *id006
+    register: result
+  - assert: *id004
+  when: not ( platform is ansible.community.match('N35')) and not titanium
+  rescue:
+  - debug: msg="connection={{ ansible_connection }} nxos_gir_profile_management failure
+      detected"
+  always:
+  - name: Remove normal mode profile
+    nxos_gir_profile_management: *id006
+  - name: Remove maintenance mode profile
+    nxos_gir_profile_management: *id005
+  - name: Turn off feature eigrp
+    nxos_feature:
+      feature: eigrp
+      state: disabled
+  - debug: msg="END connection={{ ansible_connection }} nxos_gir_profile_management
+      sanity test"

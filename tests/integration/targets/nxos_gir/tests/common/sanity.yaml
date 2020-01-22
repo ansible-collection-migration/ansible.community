@@ -1,0 +1,82 @@
+- debug: msg="START connection={{ ansible_connection }} nxos_gir sanity test"
+- set_fact: gir_run='{{ true if (platform is not search("N35")) else false }}'
+- name: Setup0
+  nxos_config: &id007
+    lines:
+    - no system mode maintenance timeout 30
+    - no configure maintenance profile normal-mode
+    - no configure maintenance profile maintenance-mode
+    match: none
+  ignore_errors: true
+- name: Setup1
+  nxos_gir:
+    system_mode_maintenance: false
+  ignore_errors: true
+- block:
+  - name: Put system in maintenance mode with reload reset reason
+    nxos_gir: &id001
+      system_mode_maintenance_on_reload_reset_reason: manual_reload
+    register: result
+  - assert: &id002
+      that:
+      - result.changed == true
+  - name: Check Idempotence
+    nxos_gir: *id001
+    register: result
+  - assert: &id004
+      that:
+      - result.changed == false
+  - name: Remove reload reason
+    nxos_gir: &id003
+      system_mode_maintenance_on_reload_reset_reason: manual_reload
+      state: absent
+    register: result
+  - assert: *id002
+  - name: Check Idempotence
+    nxos_gir: *id003
+    register: result
+  - assert: *id004
+  - name: Put system in maintenance mode with timeout
+    nxos_gir: &id005
+      system_mode_maintenance_timeout: 30
+    register: result
+  - assert: *id002
+  - name: Check Idempotence
+    nxos_gir: *id005
+    register: result
+  - assert: *id004
+  - name: Remove maintenance mode timeout
+    nxos_gir: &id006
+      system_mode_maintenance_timeout: 30
+      state: absent
+    register: result
+  - assert: *id002
+  - name: Check Idempotence
+    nxos_gir: *id006
+    register: result
+  - assert: *id004
+  - name: Put system in maintenance mode
+    nxos_gir:
+      system_mode_maintenance: true
+    register: result
+  - assert: *id002
+  when: gir_run
+  rescue:
+  - debug: msg="connection={{ ansible_connection }} nxos_gir failure detected"
+  always:
+  - name: Remove snapshots
+    nxos_snapshot:
+      action: delete_all
+    ignore_errors: true
+  - name: Teardown0
+    nxos_config: *id007
+    ignore_errors: true
+  - name: Put system back in normal mode
+    nxos_gir:
+      system_mode_maintenance: false
+    retries: 3
+    delay: 30
+    register: result
+    until: result is not failed
+    ignore_errors: true
+- debug: msg="END connection={{ ansible_connection }} nxos_gir sanity test"

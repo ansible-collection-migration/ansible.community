@@ -1,0 +1,55 @@
+- debug: msg="START iosxr_netconf cli/basic.yaml on connection={{ ansible_connection
+    }}"
+- name: Disable NetConf service
+  iosxr_netconf: &id003
+    state: absent
+- block:
+  - name: Enable Netconf service
+    iosxr_netconf:
+      netconf_port: 830
+      netconf_vrf: default
+      state: present
+    register: result
+  - assert: &id001
+      that:
+      - result.changed == true
+  - name: Check idempotence of Enable Netconf service
+    iosxr_netconf:
+      netconf_port: 830
+      netconf_vrf: default
+      state: present
+    register: result
+  - assert: &id002
+      that:
+      - result.changed == false
+  - name: Change Netconf port
+    iosxr_netconf:
+      netconf_port: 9000
+      state: present
+    register: result
+  - assert: *id001
+  - name: Check idempotent of change Netconf port
+    iosxr_netconf:
+      netconf_port: 9000
+      state: present
+    register: result
+  - assert: *id002
+  - name: Add Netconf vrf
+    iosxr_netconf:
+      netconf_port: 9000
+      netconf_vrf: new_default
+      state: present
+    register: result
+  - assert: *id001
+  - name: Check idempotent of add Netconf vrf
+    iosxr_netconf:
+      netconf_port: 9000
+      netconf_vrf: new_default
+      state: present
+    register: result
+  - assert: *id002
+  always:
+  - name: Disable Netconf service
+    iosxr_netconf: *id003
+- debug: msg="END iosxr_netconf cli/basic.yaml on connection={{ ansible_connection
+    }}"

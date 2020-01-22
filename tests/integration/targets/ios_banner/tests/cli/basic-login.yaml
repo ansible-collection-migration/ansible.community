@@ -1,0 +1,49 @@
+- name: setup - remove login
+  ios_banner:
+    banner: login
+    state: absent
+    provider: '{{ cli }}'
+- name: Set login
+  ios_banner:
+    banner: login
+    text: 'this is my login banner
+
+      that has a multiline
+
+      string
+
+      '
+    state: present
+    provider: '{{ cli }}'
+  register: result
+- debug:
+    msg: '{{ result }}'
+- assert:
+    that:
+    - result.changed == true
+    - '''banner login @
+
+      this is my login banner
+
+      that has a multiline
+
+      string
+
+      @'' in result.commands'
+- name: Set login again (idempotent)
+  ios_banner:
+    banner: login
+    text: 'this is my login banner
+
+      that has a multiline
+
+      string
+
+      '
+    state: present
+    provider: '{{ cli }}'
+  register: result
+- assert:
+    that:
+    - result.changed == false
+    - result.commands | length == 0

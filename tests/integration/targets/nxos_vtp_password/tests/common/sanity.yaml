@@ -1,0 +1,48 @@
+- debug: msg="START connection={{ ansible_connection }} nxos_vtp_password sanity test"
+- set_fact: vtp_run="true"
+- set_fact: vtp_run="false"
+  when: platform is ansible.community.search('N3K-F|N9K-F')
+- block:
+  - name: disable feature vtp
+    nxos_feature:
+      feature: vtp
+      state: disabled
+    ignore_errors: true
+  - name: enable feature vtp
+    nxos_feature:
+      feature: vtp
+      state: enabled
+  - name: configure vtp domain
+    nxos_vtp_domain:
+      domain: testing
+  - name: configure vtp password
+    nxos_vtp_password: &id001
+      vtp_password: ntc
+      state: present
+    register: result
+  - assert: &id002
+      that:
+      - result.changed == true
+  - name: Conf Idempotence
+    nxos_vtp_password: *id001
+    register: result
+  - assert: &id004
+      that:
+      - result.changed == false
+  - name: remove vtp password
+    nxos_vtp_password: &id003
+      vtp_password: ntc
+      state: absent
+    register: result
+  - assert: *id002
+  - name: Remove Idempotence
+    nxos_vtp_password: *id003
+    register: result
+  - assert: *id004
+  when: vtp_run
+  always:
+  - name: disable feature vtp
+    nxos_feature:
+      feature: vtp
+      state: disabled
+- debug: msg="END connection={{ ansible_connection }} nxos_vtp_password sanity test"

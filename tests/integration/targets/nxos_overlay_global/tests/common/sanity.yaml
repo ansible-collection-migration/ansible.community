@@ -1,0 +1,72 @@
+- debug: msg="START connection={{ ansible_connection }} nxos_overlay_global sanity
+    test"
+- set_fact: overlay_global_supported="false"
+- set_fact: overlay_global_supported="true"
+  when: platform is ansible.community.search("N35NG|N7K|^N9K$") or ( platform is ansible.community.match("N9k-F")
+    and imagetag is ansible.community.version('F3', 'ne'))
+- debug: msg="Platform {{ platform }} running Image version {{ image_version }} supports
+    nxos_overlay_global"
+  when: overlay_global_supported
+- block:
+  - name: Enable nv overlay evpn
+    nxos_evpn_global:
+      nv_overlay_evpn: true
+  - name: Apply N7K specific setup config
+    include: tasks/platform/n7k/setup.yaml
+    when: platform is ansible.community.match('N7K')
+  - name: Configure Additional N7K requiste features
+    nxos_config:
+      commands:
+      - feature-set fabric
+      - feature fabric forwarding
+      match: none
+    when: platform is ansible.community.match('N7K')
+  - name: Remove possibly existing mac
+    nxos_overlay_global:
+      anycast_gateway_mac: default
+    ignore_errors: true
+  when: overlay_global_supported
+- block:
+  - name: Configure overlay global
+    nxos_overlay_global: &id001
+      anycast_gateway_mac: b.b.b
+    register: result
+  - assert: &id002
+      that:
+      - result.changed == true
+  - name: Check Idempotence
+    nxos_overlay_global: *id001
+    register: result
+  - assert: &id004
+      that:
+      - result.changed == false
+  - name: Update anycast gateway mac
+    nxos_overlay_global: &id003
+      anycast_gateway_mac: a.a.a
+    register: result
+  - assert: *id002
+  - name: Check Idempotence
+    nxos_overlay_global: *id003
+    register: result
+  - assert: *id004
+  - name: Remove anycast gateway mac
+    nxos_overlay_global: &id005
+      anycast_gateway_mac: default
+    register: result
+  - assert: *id002
+  - name: Check Idempotence
+    nxos_overlay_global: *id005
+    register: result
+  - assert: *id004
+  when: overlay_global_supported
+  always:
+  - name: Apply N7K specific cleanup config
+    include: tasks/platform/n7k/cleanup.yaml
+    when: platform is ansible.community.match('N7K')
+  - name: Disable nv overlay evpn
+    nxos_evpn_global:
+      nv_overlay_evpn: false
+    ignore_errors: true
+    when: overlay_global_supported
+  - debug: msg="END connection={{ ansible_connection }} nxos_overlay_global sanity
+      test"

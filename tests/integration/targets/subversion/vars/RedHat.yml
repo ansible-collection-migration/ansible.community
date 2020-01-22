@@ -1,0 +1,8 @@
+subversion_packages:
+- mod_dav_svn
+- subversion
+upgrade_packages:
+- subversion
+- sqlite
+apache_user: apache
+apache_group: apache

@@ -1,0 +1,80 @@
+- debug: msg="START connection={{ ansible_connection }} nxos_banner sanity test"
+- set_fact: banner_exec_image_ok
+  when: platform is ansible.community.search("N7K|N3K-F")
+- set_fact: banner_motd_image_ok
+  when: imagetag is not search("I7") and ansible_connection != "httpapi"
+- block:
+  - debug: msg="START nxos_banner exec tests"
+  - name: setup exec
+    nxos_banner: &id002
+      banner: exec
+      state: absent
+  - name: Set exec
+    nxos_banner: &id001
+      banner: exec
+      text: 'this is my exec banner
+
+        that has a multiline
+
+        string
+
+        '
+      state: present
+    register: result
+  - assert:
+      that:
+      - result.changed == true
+      - '''banner exec @
+
+        this is my exec banner
+
+        that has a multiline
+
+        string
+
+        @'' in result.commands'
+  - name: Set exec again (idempotent)
+    nxos_banner: *id001
+    register: result
+  - assert:
+      that:
+      - result.changed == false
+      - result.commands | length == 0
+  - name: teardown exec
+    nxos_banner: *id002
+  when: banner_exec_image_ok is defined
+- block:
+  - name: setup motd
+    nxos_banner: &id004
+      banner: motd
+      state: absent
+  - name: Set motd
+    nxos_banner: &id003
+      banner: motd
+      text: 'Junk motd banner
+
+        over multiple lines
+
+        '
+      state: present
+    register: result
+  - assert:
+      that:
+      - result.changed == true
+      - '''banner motd @
+
+        Junk motd banner
+
+        over multiple lines
+
+        @'' in result.commands'
+  - name: Set motd again (idempotent)
+    nxos_banner: *id003
+    register: result
+  - assert:
+      that:
+      - result.changed == false
+  - name: teardown motd
+    nxos_banner: *id004
+  when: banner_motd_image_ok is defined
+- debug: msg="END connection={{ ansible_connection }} nxos_banner sanity test"

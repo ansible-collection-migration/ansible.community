@@ -1,0 +1,2 @@
+- name: Run test cases
+  include: tests.yml ansible_connection=local

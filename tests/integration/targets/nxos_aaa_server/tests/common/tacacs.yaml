@@ -1,0 +1,83 @@
+- debug: msg="START connection={{ ansible_connection }} nxos_aaa_server tacacs.yaml
+    sanity test"
+- name: Enable feature tacacs+
+  nxos_feature:
+    feature: tacacs+
+    state: enabled
+- name: Setup
+  nxos_aaa_server: &id004
+    server_type: tacacs
+    deadtime: default
+    server_timeout: default
+    directed_request: default
+    state: default
+  ignore_errors: true
+- block:
+  - name: Configure tacacs server defaults
+    nxos_aaa_server: &id001
+      server_type: tacacs
+      state: present
+    register: result
+  - name: Check Idempotence
+    nxos_aaa_server: *id001
+    register: result
+  - assert: &id003
+      that:
+      - result.changed == false
+  - name: Configure tacacs server non defaults
+    nxos_aaa_server: &id002
+      server_type: tacacs
+      server_timeout: 9
+      deadtime: 20
+      directed_request: enabled
+      state: present
+    register: result
+  - assert: &id005
+      that:
+      - result.changed == true
+  - name: Check Idempotence
+    nxos_aaa_server: *id002
+    register: result
+  - assert: *id003
+  - name: Remove tacacs server configuration
+    nxos_aaa_server: *id004
+    register: result
+  - assert: *id005
+  - name: Configure tacacs server with global key
+    nxos_aaa_server: &id006
+      server_type: tacacs
+      encrypt_type: 7
+      global_key: test_key
+      state: present
+    register: result
+  - assert: *id005
+  - name: Check Idempotence
+    nxos_aaa_server: *id006
+    register: result
+  - assert: *id003
+  - name: Remove tacacs server configuration
+    nxos_aaa_server: &id007
+      server_type: tacacs
+      deadtime: default
+      server_timeout: default
+      global_key: default
+      directed_request: default
+      state: default
+    register: result
+  - assert: *id005
+  - name: Check Idempotence
+    nxos_aaa_server: *id007
+    register: result
+  - assert: *id003
+  rescue:
+  - debug: msg="connection={{ ansible_connection }} nxos_aaa_server failure detected"
+  always:
+  - name: Remove tacacs server configuration
+    nxos_aaa_server: *id004
+    register: result
+  - name: Disable feature tacacs+
+    nxos_feature:
+      feature: tacacs+
+      state: disabled
+- debug: msg="END connection={{ ansible_connection }} nxos_aaa_server tacacs.yaml
+    sanity test"

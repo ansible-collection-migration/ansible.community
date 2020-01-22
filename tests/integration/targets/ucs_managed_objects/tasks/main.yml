@@ -1,0 +1,248 @@
+- name: Test that we have a UCS host, UCS username, and UCS password
+  fail:
+    msg: 'Please define the following variables: ucs_hostname, ucs_username and ucs_password.'
+  when: ucs_hostname is not defined or ucs_username is not defined or ucs_password
+    is not defined
+  vars:
+    login_info:
+      hostname: '{{ ucs_hostname }}'
+      username: '{{ ucs_username }}'
+      password: '{{ ucs_password }}'
+- name: Remove Network Control Policy
+  ucs_managed_objects: &id003
+    hostname: '{{ ucs_hostname }}'
+    username: '{{ ucs_username }}'
+    password: '{{ ucs_password }}'
+    objects:
+    - module: ucsmsdk.mometa.nwctrl.NwctrlDefinition
+      class: NwctrlDefinition
+      properties:
+        parent_mo_or_dn: org-root
+        name: Enable-CDP-LLDP
+    state: absent
+- name: Configure Network Control Policy
+  ucs_managed_objects: &id001
+    hostname: '{{ ucs_hostname }}'
+    username: '{{ ucs_username }}'
+    password: '{{ ucs_password }}'
+    objects:
+    - module: ucsmsdk.mometa.nwctrl.NwctrlDefinition
+      class: NwctrlDefinition
+      properties:
+        parent_mo_or_dn: org-root
+        cdp: enabled
+        descr: ''
+        lldp_receive: enabled
+        lldp_transmit: enabled
+        name: Enable-CDP-LLDP
+  check_mode: true
+  register: cm_managed_objects_present
+- name: Managed Objects present (normal mode)
+  ucs_managed_objects: *id001
+  register: nm_managed_objects_present
+- name: Managed Objects present again (check_mode)
+  ucs_managed_objects: *id001
+  check_mode: true
+  register: cm_managed_objects_present_again
+- name: Managed Objects present again (normal mode)
+  ucs_managed_objects: *id001
+  register: nm_managed_objects_present_again
+- name: Verify Managed Objects present results
+  assert:
+    that:
+    - cm_managed_objects_present.changed == nm_managed_objects_present.changed ==
+      true
+    - cm_managed_objects_present_again.changed == nm_managed_objects_present_again.changed
+      == false
+- name: Managed Objects change (check_mode)
+  ucs_managed_objects: &id002
+    hostname: '{{ ucs_hostname }}'
+    username: '{{ ucs_username }}'
+    password: '{{ ucs_password }}'
+    objects:
+    - module: ucsmsdk.mometa.nwctrl.NwctrlDefinition
+      class: NwctrlDefinition
+      properties:
+        parent_mo_or_dn: org-root
+        cdp: enabled
+        descr: Testing Ansible
+        lldp_receive: enabled
+        lldp_transmit: enabled
+        name: Enable-CDP-LLDP
+  check_mode: true
+  register: cm_managed_objects_change
+- name: Managed Objects change (normal mode)
+  ucs_managed_objects: *id002
+  register: nm_managed_objects_change
+- name: Managed Objects again (check_mode)
+  ucs_managed_objects: *id002
+  check_mode: true
+  register: cm_managed_objects_change_again
+- name: Managed Objects change again (normal mode)
+  ucs_managed_objects: *id002
+  register: nm_managed_objects_change_again
+- name: Verify Managed Objects change results
+  assert:
+    that:
+    - cm_managed_objects_change.changed == nm_managed_objects_change.changed == true
+    - cm_managed_objects_change_again.changed == nm_managed_objects_change_again.changed
+      == false
+- name: Managed Objects absent (check_mode)
+  ucs_managed_objects: *id003
+  check_mode: true
+  register: cm_managed_objects_absent
+- name: Managed Objects absent (normal mode)
+  ucs_managed_objects: *id003
+  register: nm_managed_objects_absent
+- name: Managed Objects absent again (check_mode)
+  ucs_managed_objects: *id003
+  check_mode: true
+  register: cm_managed_objects_absent_again
+- name: Managed Objects absent again (normal mode)
+  ucs_managed_objects: *id003
+  register: nm_managed_objects_absent_again
+- name: Verify Managed Objects absent results
+  assert:
+    that:
+    - cm_managed_objects_absent.changed == nm_managed_objects_absent.changed == true
+    - cm_managed_objects_absent_again.changed == nm_managed_objects_absent_again.changed
+      == false
+- name: Remove Boot Policy
+  ucs_managed_objects: &id006
+    hostname: '{{ ucs_hostname }}'
+    username: '{{ ucs_username }}'
+    password: '{{ ucs_password }}'
+    objects:
+    - module: ucsmsdk.mometa.lsboot.LsbootPolicy
+      class: LsbootPolicy
+      properties:
+        parent_mo_or_dn: org-root
+        name: Python_SDS
+    state: absent
+- name: Configure Boot Policy
+  ucs_managed_objects: &id004
+    hostname: '{{ ucs_hostname }}'
+    username: '{{ ucs_username }}'
+    password: '{{ ucs_password }}'
+    objects:
+    - module: ucsmsdk.mometa.lsboot.LsbootPolicy
+      class: LsbootPolicy
+      properties:
+        parent_mo_or_dn: org-root
+        name: Python_SDS
+        enforce_vnic_name: 'yes'
+        boot_mode: legacy
+        reboot_on_update: 'no'
+      children:
+      - module: ucsmsdk.mometa.lsboot.LsbootVirtualMedia
+        class: LsbootVirtualMedia
+        properties:
+          access: read-only-local
+          lun_id: '0'
+          order: '2'
+      - module: ucsmsdk.mometa.lsboot.LsbootStorage
+        class: LsbootStorage
+        properties:
+          order: '1'
+        children:
+        - module: ucsmsdk.mometa.lsboot.LsbootLocalStorage
+          class: LsbootLocalStorage
+          properties: {}
+          children:
+          - module: ucsmsdk.mometa.lsboot.LsbootDefaultLocalImage
+            class: LsbootDefaultLocalImage
+            properties:
+              order: '1'
+  check_mode: true
+  register: cm_boot_managed_objects_present
+- name: Boot Managed Objects present (normal mode)
+  ucs_managed_objects: *id004
+  register: nm_boot_managed_objects_present
+- name: Boot Managed Objects present again (check_mode)
+  ucs_managed_objects: *id004
+  check_mode: true
+  register: cm_boot_managed_objects_present_again
+- name: Boot Managed Objects present again (normal mode)
+  ucs_managed_objects: *id004
+  register: nm_boot_managed_objects_present_again
+- name: Verify Boot Managed Objects present results
+  assert:
+    that:
+    - cm_boot_managed_objects_present.changed == nm_boot_managed_objects_present.changed
+      == true
+    - cm_boot_managed_objects_present_again.changed == nm_boot_managed_objects_present_again.changed
+      == false
+- name: Boot Managed Objects change (check_mode)
+  ucs_managed_objects: &id005
+    hostname: '{{ ucs_hostname }}'
+    username: '{{ ucs_username }}'
+    password: '{{ ucs_password }}'
+    objects:
+    - module: ucsmsdk.mometa.lsboot.LsbootPolicy
+      class: LsbootPolicy
+      properties:
+        parent_mo_or_dn: org-root
+        name: Python_SDS
+        enforce_vnic_name: 'yes'
+        boot_mode: legacy
+        reboot_on_update: 'yes'
+      children:
+      - module: ucsmsdk.mometa.lsboot.LsbootVirtualMedia
+        class: LsbootVirtualMedia
+        properties:
+          access: read-only-local
+          lun_id: '0'
+          order: '2'
+      - module: ucsmsdk.mometa.lsboot.LsbootStorage
+        class: LsbootStorage
+        properties:
+          order: '1'
+        children:
+        - module: ucsmsdk.mometa.lsboot.LsbootLocalStorage
+          class: LsbootLocalStorage
+          properties: {}
+          children:
+          - module: ucsmsdk.mometa.lsboot.LsbootDefaultLocalImage
+            class: LsbootDefaultLocalImage
+            properties:
+              order: '1'
+  check_mode: true
+  register: cm_boot_managed_objects_change
+- name: Boot Managed Objects change (normal mode)
+  ucs_managed_objects: *id005
+  register: nm_boot_managed_objects_change
+- name: Boot Managed Objects again (check_mode)
+  ucs_managed_objects: *id005
+  check_mode: true
+  register: cm_boot_managed_objects_change_again
+- name: Boot Managed Objects change again (normal mode)
+  ucs_managed_objects: *id005
+  register: nm_boot_managed_objects_change_again
+- name: Verify Boot Managed Objects change results
+  assert:
+    that:
+    - cm_boot_managed_objects_change.changed == nm_boot_managed_objects_change.changed
+      == true
+    - cm_boot_managed_objects_change_again.changed == nm_boot_managed_objects_change_again.changed
+      == false
+- name: Boot Managed Objects absent (check_mode)
+  ucs_managed_objects: *id006
+  check_mode: true
+  register: cm_boot_managed_objects_absent
+- name: Boot Managed Objects absent (normal mode)
+  ucs_managed_objects: *id006
+  register: nm_boot_managed_objects_absent
+- name: Boot Managed Objects absent again (check_mode)
+  ucs_managed_objects: *id006
+  check_mode: true
+  register: cm_boot_managed_objects_absent_again
+- name: Boot Managed Objects absent again (normal mode)
+  ucs_managed_objects: *id006
+  register: nm_boot_managed_objects_absent_again
+- name: Verify Boot Managed Objects absent results
+  assert:
+    that:
+    - cm_boot_managed_objects_absent.changed == nm_boot_managed_objects_absent.changed
+      == true
+    - cm_boot_managed_objects_absent_again.changed == nm_boot_managed_objects_absent_again.changed
+      == false

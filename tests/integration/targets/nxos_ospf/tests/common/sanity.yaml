@@ -1,0 +1,39 @@
+- debug: msg="START connection={{ ansible_connection }} nxos_ospf sanity test"
+- name: Enable feature OSPF
+  nxos_feature:
+    feature: ospf
+    state: enabled
+  ignore_errors: true
+- block:
+  - name: Configure ospf
+    nxos_ospf: &id001
+      ospf: 1
+      state: present
+    register: result
+  - assert: &id002
+      that:
+      - result.changed == true
+  - name: Check Idempotence
+    nxos_ospf: *id001
+    register: result
+  - assert: &id004
+      that:
+      - result.changed == false
+  rescue:
+  - name: Disable feature OSPF
+    nxos_feature:
+      feature: ospf
+      state: disabled
+    ignore_errors: true
+  always:
+  - name: Unconfigure ospf
+    nxos_ospf: &id003
+      ospf: 1
+      state: absent
+    register: result
+  - assert: *id002
+  - name: Check Idempotence
+    nxos_ospf: *id003
+    register: result
+  - assert: *id004
+  - debug: msg="END connection={{ ansible_connection }} nxos_ospf sanity test"

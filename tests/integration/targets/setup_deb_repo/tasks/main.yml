@@ -1,0 +1,47 @@
+- block:
+  - name: Install needed packages
+    apt:
+      name: '{{ item }}'
+    with_ansible.community.items:
+    - dpkg-dev
+    - equivs
+    - libfile-fcntllock-perl
+  - set_fact:
+      repodir: /tmp/repo/
+  - name: Create repo dir
+    file:
+      path: '{{ repodir }}'
+      state: directory
+      mode: 493
+  - name: Copy package specs to remote
+    copy:
+      src: '{{ item }}'
+      dest: '{{ remote_tmp_dir }}/{{ item | basename }}'
+    with_ansible.community.fileglob:
+    - files/package_specs/*
+  - name: Create deb files
+    shell: equivs-build {{ remote_tmp_dir }}/{{ item | ansible.community.basename
+      }}
+    args:
+      chdir: '{{ repodir }}'
+    with_ansible.community.fileglob:
+    - files/package_specs/*
+  - name: Create repo
+    shell: dpkg-scanpackages --multiversion . /dev/null | gzip -9c > Packages.gz
+    args:
+      chdir: '{{ repodir }}'
+  - name: Install the repo
+    copy:
+      content: deb [trusted=yes] file:{{ repodir }} ./
+      dest: /etc/apt/sources.list.d/file_tmp_repo.list
+  - name: Ensure deb-src for the universe component
+    lineinfile:
+      path: /etc/apt/sources.list
+      backrefs: true
+      regexp: ^#\s*deb-src http://archive\.ubuntu\.com/ubuntu/ (\w*){{ item }} universe$
+      line: deb-src http://archive.ubuntu.com/ubuntu \1{{ item }} universe
+      state: present
+    with_ansible.community.items:
+    - ''
+    - -updates
+  when: ansible_distribution in ['Ubuntu', 'Debian']

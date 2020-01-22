@@ -1,0 +1,31 @@
+- hosts: all
+  gather_facts: false
+  tasks:
+  - module_defaults:
+      group/aws:
+        aws_access_key: '{{ aws_access_key }}'
+        aws_secret_key: '{{ aws_secret_key }}'
+        security_token: '{{ security_token | default(omit) }}'
+        region: '{{ aws_region }}'
+    vars:
+      setup_run_once: true
+    block:
+    - include_role:
+        name: ec2_instance
+        tasks_from: find_ami.yml
+    - include_role:
+        name: ec2_instance
+        tasks_from: env_setup.yml
+    rescue:
+    - include_role:
+        name: ec2_instance
+        tasks_from: env_cleanup.yml
+      run_once: true
+    - fail:
+        msg: Environment preparation failed
+      run_once: true
+- hosts: all
+  gather_facts: false
+  strategy: ansible.community.free
+  roles:
+  - ec2_instance

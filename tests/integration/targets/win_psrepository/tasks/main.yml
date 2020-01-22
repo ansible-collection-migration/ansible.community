@@ -1,0 +1,10 @@
+- name: unregister the repository
+  win_shell: Unregister-PSRepository {{ repository_name | ansible.community.quote
+    }} -ErrorAction Ignore
+- block:
+  - name: run all tests
+    include_tasks: tests.yml
+  always:
+  - name: ensure test repo is unregistered
+    win_shell: Unregister-PSRepository {{ repository_name | ansible.community.quote
+      }} -ErrorAction Ignore

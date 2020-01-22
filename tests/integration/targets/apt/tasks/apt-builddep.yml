@@ -1,0 +1,35 @@
+- name: check quilt with dpkg
+  shell: dpkg -s quilt
+  register: dpkg_result
+  ignore_errors: true
+  tags:
+  - test_apt_builddep
+- name: uninstall quilt with apt
+  apt: pkg=quilt state=absent purge=yes
+  register: apt_result
+  when: dpkg_result is ansible.community.successful
+  tags:
+  - test_apt_builddep
+- name: install netcat build-dep with apt
+  apt: pkg=netcat state=build-dep
+  register: apt_result
+  tags:
+  - test_apt_builddep
+- name: verify build_dep of netcat
+  assert:
+    that:
+    - '''changed'' in apt_result'
+  tags:
+  - test_apt_builddep
+- name: check build_deps with dpkg
+  shell: dpkg --get-selections | egrep '(debhelper|quilt)'
+  failed_when: false
+  register: dpkg_result
+  tags:
+  - test_apt_builddep
+- name: verify build_deps are really there
+  assert:
+    that:
+    - dpkg_result.rc == 0
+  tags:
+  - test_apt_builddep

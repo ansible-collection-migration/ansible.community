@@ -1,0 +1,118 @@
+- name: Setup API access variables
+  debug: msg="Setup API keys"
+  vars:
+    api_info:
+      api_private_key: '{{ api_private_key | default(''~/Downloads/SSOSecretKey.txt'')
+        }}'
+      api_key_id: '{{ api_key_id | default(''596cc79e5d91b400010d15ad/596cc7945d91b400010d154e/5b6275df3437357030a7795f'')
+        }}'
+- name: Boot policy Absent
+  intersight_rest_api: &id003
+    api_private_key: '{{ api_private_key | default(''~/Downloads/SSOSecretKey.txt'')
+      }}'
+    api_key_id: '{{ api_key_id | default(''596cc79e5d91b400010d15ad/596cc7945d91b400010d154e/5b6275df3437357030a7795f'')
+      }}'
+    resource_path: /boot/PrecisionPolicies
+    query_params:
+      $filter: Name eq 'vmedia-localdisk'
+    state: absent
+- name: Boot policy present (check_mode)
+  intersight_rest_api: &id001
+    api_private_key: '{{ api_private_key | default(''~/Downloads/SSOSecretKey.txt'')
+      }}'
+    api_key_id: '{{ api_key_id | default(''596cc79e5d91b400010d15ad/596cc7945d91b400010d154e/5b6275df3437357030a7795f'')
+      }}'
+    resource_path: /boot/PrecisionPolicies
+    query_params:
+      $filter: Name eq 'vmedia-localdisk'
+    api_body:
+      Name: vmedia-localdisk
+      ConfiguredBootMode: Legacy
+      BootDevices:
+      - ObjectType: boot.VirtualMedia
+        Enabled: true
+        Name: remote-vmedia
+        Subtype: cimc-mapped-dvd
+      - ObjectType: boot.LocalDisk
+        Enabled: true
+        Name: localdisk
+        Slot: MRAID
+        Bootloader: null
+  check_mode: true
+  register: cm_boot_policy_present
+- name: Boot policy present (normal mode)
+  intersight_rest_api: *id001
+  register: nm_boot_policy_present
+- name: Boot policy present again (check_mode)
+  intersight_rest_api: *id001
+  check_mode: true
+  register: cm_boot_policy_present_again
+- name: Boot policy present again (normal mode)
+  intersight_rest_api: *id001
+  register: nm_boot_policy_present_again
+- name: Verify Boot policy present results
+  assert:
+    that:
+    - cm_boot_policy_present.changed == nm_boot_policy_present.changed == true
+    - cm_boot_policy_present_again.changed == nm_boot_policy_present_again.changed
+      == false
+- name: Boot policy change (check_mode)
+  intersight_rest_api: &id002
+    api_private_key: '{{ api_private_key | default(''~/Downloads/SSOSecretKey.txt'')
+      }}'
+    api_key_id: '{{ api_key_id | default(''596cc79e5d91b400010d15ad/596cc7945d91b400010d154e/5b6275df3437357030a7795f'')
+      }}'
+    resource_path: /boot/PrecisionPolicies
+    query_params:
+      $filter: Name eq 'vmedia-localdisk'
+    api_body:
+      Name: vmedia-localdisk
+      ConfiguredBootMode: Legacy
+      BootDevices:
+      - ObjectType: boot.VirtualMedia
+        Enabled: true
+        Name: remote-vmedia
+        Subtype: cimc-mapped-dvd
+      - ObjectType: boot.LocalDisk
+        Enabled: true
+        Name: localdisk
+        Slot: HBA
+        Bootloader: null
+  check_mode: true
+  register: cm_boot_policy_change
+- name: Boot policy change (normal mode)
+  intersight_rest_api: *id002
+  register: nm_boot_policy_change
+- name: Boot policy again (check_mode)
+  intersight_rest_api: *id002
+  check_mode: true
+  register: cm_boot_policy_change_again
+- name: Boot policy change again (normal mode)
+  intersight_rest_api: *id002
+  register: nm_boot_policy_change_again
+- name: Verify Boot policy change results
+  assert:
+    that:
+    - cm_boot_policy_change.changed == nm_boot_policy_change.changed == true
+    - cm_boot_policy_change_again.changed == nm_boot_policy_change_again.changed ==
+      false
+- name: Boot policy absent (check_mode)
+  intersight_rest_api: *id003
+  check_mode: true
+  register: cm_boot_policy_absent
+- name: Boot policy absent (normal mode)
+  intersight_rest_api: *id003
+  register: nm_boot_policy_absent
+- name: Boot policy absent again (check_mode)
+  intersight_rest_api: *id003
+  check_mode: true
+  register: cm_boot_policy_absent_again
+- name: Boot policy absent again (normal mode)
+  intersight_rest_api: *id003
+  register: nm_boot_policy_absent_again
+- name: Verify Boot policy absent results
+  assert:
+    that:
+    - cm_boot_policy_absent.changed == nm_boot_policy_absent.changed == true
+    - cm_boot_policy_absent_again.changed == nm_boot_policy_absent_again.changed ==
+      false

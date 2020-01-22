@@ -1,0 +1,14 @@
+- include_vars: '{{ item }}'
+  with_ansible.community.first_found:
+  - files:
+    - '{{ ansible_os_family }}-{{ ansible_distribution_version }}.yml'
+    - '{{ ansible_os_family }}.yml'
+    - default.yml
+    paths: ../vars
+- template:
+    src: dummy_command
+    dest: /usr/bin/dummy{{ item }}
+    owner: root
+    group: root
+    mode: 493
+  with_ansible.community.sequence: start=1 end=4

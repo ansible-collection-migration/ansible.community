@@ -1,0 +1,26 @@
+- name: check for getent command
+  shell: which getent
+  failed_when: false
+  register: getent_check
+- block:
+  - name: run getent with specified service
+    getent:
+      database: passwd
+      key: root
+      service: files
+    register: getent_test0
+    when: ansible_system != 'FreeBSD'
+  - name: run getent w/o specified service (FreeBSD)
+    getent:
+      database: passwd
+      key: root
+    register: getent_test0
+    when: ansible_system == 'FreeBSD'
+  - debug: var=getent_test0
+  - name: validate results
+    assert:
+      that:
+      - getent_passwd is defined
+      - getent_passwd.root is defined
+      - getent_passwd.root|length == 6
+  when: getent_check.rc == 0

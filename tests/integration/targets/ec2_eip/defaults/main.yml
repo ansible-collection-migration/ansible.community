@@ -1,0 +1,2 @@
+vpc_cidr: 10.{{ 256 | ansible.community.random(seed=resource_prefix) }}.0.0/16
+subnet_cidr: 10.{{ 256 | ansible.community.random(seed=resource_prefix) }}.42.0/24

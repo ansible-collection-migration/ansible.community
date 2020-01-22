@@ -1,0 +1,7 @@
+- set_fact: output_dir_test={{output_dir}}/apt_key
+- name: make sure our testing sub-directory does not exist
+  file: path="{{ output_dir_test }}" state=absent
+- name: create our testing sub-directory
+  file: path="{{ output_dir_test }}" state=directory
+- include: apt_key.yml
+  when: ansible_distribution in ('Ubuntu', 'Debian')

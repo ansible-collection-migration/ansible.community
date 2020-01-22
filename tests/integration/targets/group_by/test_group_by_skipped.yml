@@ -1,0 +1,11 @@
+- name: Create overall groups
+  hosts: all
+  gather_facts: false
+  tasks:
+  - include_tasks: create_groups.yml
+- name: genus group validation (expect skipped)
+  hosts: genus
+  gather_facts: false
+  tasks:
+  - name: no hosts should match this group
+    fail: msg="should never get here"

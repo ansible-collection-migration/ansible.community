@@ -1,0 +1,169 @@
+- name: Test that we have a UCS host, UCS username, and UCS password
+  fail:
+    msg: 'Please define the following variables: ucs_hostname, ucs_username and ucs_password.'
+  when: ucs_hostname is not defined or ucs_username is not defined or ucs_password
+    is not defined
+  vars:
+    login_info:
+      hostname: '{{ ucs_hostname }}'
+      username: '{{ ucs_username }}'
+      password: '{{ ucs_password }}'
+- name: IPv4 Pools absent
+  ucs_ip_pool: &id005
+    hostname: '{{ ucs_hostname }}'
+    username: '{{ ucs_username }}'
+    password: '{{ ucs_password }}'
+    name: ip-A
+    state: absent
+- name: IPv6 Pools absent
+  ucs_ip_pool: &id006
+    hostname: '{{ ucs_hostname }}'
+    username: '{{ ucs_username }}'
+    password: '{{ ucs_password }}'
+    name: ipv6-B
+    state: absent
+- name: IPv4 Pools present (check_mode)
+  ucs_ip_pool: &id001
+    hostname: '{{ ucs_hostname }}'
+    username: '{{ ucs_username }}'
+    password: '{{ ucs_password }}'
+    name: ip-A
+    order: sequential
+    first_addr: 192.168.0.10
+    last_addr: 192.168.0.19
+    subnet_mask: 255.255.255.0
+    default_gw: 192.168.0.1
+    primary_dns: 172.16.143.136
+  check_mode: true
+  register: cm_ipv4_pool_present
+- name: IPv6 Pools present (check_mode)
+  ucs_ip_pool: &id002
+    hostname: '{{ ucs_hostname }}'
+    username: '{{ ucs_username }}'
+    password: '{{ ucs_password }}'
+    name: ipv6-B
+    ipv6_first_addr: fe80::1cae:7992:d7a1:ed07
+    ipv6_last_addr: fe80::1cae:7992:d7a1:edfe
+    ipv6_default_gw: fe80::1cae:7992:d7a1:ecff
+  check_mode: true
+  register: cm_ipv6_pool_present
+- name: IPv4 Pools present (normal mode)
+  ucs_ip_pool: *id001
+  register: nm_ipv4_pool_present
+- name: IPv6 Pools present (normal mode)
+  ucs_ip_pool: *id002
+  register: nm_ipv6_pool_present
+- name: IPv4 Pools present again (check_mode)
+  ucs_ip_pool: *id001
+  check_mode: true
+  register: cm_ipv4_pool_present_again
+- name: IPv6 Pools present again (check_mode)
+  ucs_ip_pool: *id002
+  check_mode: true
+  register: cm_ipv6_pool_present_again
+- name: IPv4 Pools present again (normal mode)
+  ucs_ip_pool: *id001
+  register: nm_ipv4_pool_present_again
+- name: IPv6 Pools present again (normal mode)
+  ucs_ip_pool: *id002
+  register: nm_ipv6_pool_present_again
+- name: Verify IPv4/IPv6 Pools present results
+  assert:
+    that:
+    - cm_ipv4_pool_present.changed == nm_ipv4_pool_present.changed == true
+    - cm_ipv6_pool_present.changed == nm_ipv6_pool_present.changed == true
+    - cm_ipv4_pool_present_again.changed == nm_ipv4_pool_present_again.changed ==
+      false
+    - cm_ipv6_pool_present_again.changed == nm_ipv6_pool_present_again.changed ==
+      false
+- name: IPv4 Pools description change (check_mode)
+  ucs_ip_pool: &id003
+    hostname: '{{ ucs_hostname }}'
+    username: '{{ ucs_username }}'
+    password: '{{ ucs_password }}'
+    name: ip-A
+    order: sequential
+    first_addr: 192.168.0.10
+    last_addr: 192.168.0.19
+    subnet_mask: 255.255.255.0
+    default_gw: 192.168.0.1
+    primary_dns: 172.16.143.136
+    descr: Testing Ansible
+  check_mode: true
+  register: cm_ipv4_pool_descr_change
+- name: IPv6 Pools description change (check_mode)
+  ucs_ip_pool: &id004
+    hostname: '{{ ucs_hostname }}'
+    username: '{{ ucs_username }}'
+    password: '{{ ucs_password }}'
+    name: ipv6-B
+    ipv6_first_addr: fe80::1cae:7992:d7a1:ed07
+    ipv6_last_addr: fe80::1cae:7992:d7a1:edfe
+    ipv6_default_gw: fe80::1cae:7992:d7a1:ecff
+    descr: Testing Ansible
+  check_mode: true
+  register: cm_ipv6_pool_descr_change
+- name: IPv4 Pools description change (normal mode)
+  ucs_ip_pool: *id003
+  register: nm_ipv4_pool_descr_change
+- name: IPv6 Pools description change (normal mode)
+  ucs_ip_pool: *id004
+  register: nm_ipv6_pool_descr_change
+- name: IPv4 Pools description again (check_mode)
+  ucs_ip_pool: *id003
+  check_mode: true
+  register: cm_ipv4_pool_descr_change_again
+- name: IPv6 Pools description again (check_mode)
+  ucs_ip_pool: *id004
+  check_mode: true
+  register: cm_ipv6_pool_descr_change_again
+- name: IPv4 Pools description change again (normal mode)
+  ucs_ip_pool: *id003
+  register: nm_ipv4_pool_descr_change_again
+- name: IPv6 Pools description change again (normal mode)
+  ucs_ip_pool: *id004
+  register: nm_ipv6_pool_descr_change_again
+- name: Verify IPv4/IPv6 Pools change results
+  assert:
+    that:
+    - cm_ipv4_pool_descr_change.changed == nm_ipv4_pool_descr_change.changed == true
+    - cm_ipv4_pool_descr_change_again.changed == nm_ipv4_pool_descr_change_again.changed
+      == false
+    - cm_ipv6_pool_descr_change.changed == nm_ipv6_pool_descr_change.changed == true
+    - cm_ipv6_pool_descr_change_again.changed == nm_ipv6_pool_descr_change_again.changed
+      == false
+- name: IPv4 Pools absent (check_mode)
+  ucs_ip_pool: *id005
+  check_mode: true
+  register: cm_ipv4_pool_absent
+- name: IPv6 Pools absent (check_mode)
+  ucs_ip_pool: *id006
+  check_mode: true
+  register: cm_ipv6_pool_absent
+- name: IPv4 Pools absent (normal mode)
+  ucs_ip_pool: *id005
+  register: nm_ipv4_pool_absent
+- name: IPv6 Pools absent (normal mode)
+  ucs_ip_pool: *id006
+  register: nm_ipv6_pool_absent
+- name: IPv4 Pools absent again (check_mode)
+  ucs_ip_pool: *id005
+  check_mode: true
+  register: cm_ipv4_pool_absent_again
+- name: IPv6 Pools absent again (check_mode)
+  ucs_ip_pool: *id006
+  check_mode: true
+  register: cm_ipv6_pool_absent_again
+- name: IPv4 Pools absent again (normal mode)
+  ucs_ip_pool: *id005
+  register: nm_ipv4_pool_absent_again
+- name: IPv6 Pools absent again (normal mode)
+  ucs_ip_pool: *id006
+  register: nm_ipv6_pool_absent_again
+- name: Verify IPv4/IPv6 Pools absent results
+  assert:
+    that:
+    - cm_ipv4_pool_absent.changed == nm_ipv4_pool_absent.changed == true
+    - cm_ipv4_pool_absent_again.changed == nm_ipv4_pool_absent_again.changed == false
+    - cm_ipv6_pool_absent.changed == nm_ipv6_pool_absent.changed == true
+    - cm_ipv6_pool_absent_again.changed == nm_ipv6_pool_absent_again.changed == false

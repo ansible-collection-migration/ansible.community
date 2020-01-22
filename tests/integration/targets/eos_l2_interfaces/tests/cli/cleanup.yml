@@ -1,0 +1,11 @@
+- name: Remove all vlans
+  cli_config:
+    config: no vlan 1-4094
+  become: true
+- name: Completely remove vlans from interfaces
+  cli_config:
+    config: "interface {{ item }}\n  no switchport mode\n  no switchport access vlan\n"
+  become: true
+  with_ansible.community.items:
+  - Ethernet1
+  - Ethernet2

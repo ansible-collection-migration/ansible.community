@@ -1,0 +1,50 @@
+- name: Remove firmware source
+  aci_firmware_source:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: '{{ aci_output_level | default("info") }}'
+    source: aci-msft-pkg-3.1.1i.zip
+    state: absent
+- name: Query all sources (check_mode)
+  aci_firmware_source: &id001
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: '{{ aci_output_level | default("info") }}'
+    state: query
+  check_mode: true
+  register: cm_query_all_sources
+- name: Query all sources (normal mode)
+  aci_firmware_source: *id001
+  register: nm_query_all_sources
+- name: Verify query_all_sources
+  assert:
+    that:
+    - cm_query_all_sources is not changed
+    - nm_query_all_sources is not changed
+    - cm_query_all_sources == nm_query_all_sources
+- name: Error when required parameter is missing
+  aci_firmware_source:
+    host: '{{ aci_hostname }}'
+    username: '{{ aci_username }}'
+    password: '{{ aci_password }}'
+    validate_certs: '{{ aci_validate_certs | default(false) }}'
+    use_ssl: '{{ aci_use_ssl | default(true) }}'
+    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    output_level: '{{ aci_output_level | default("info") }}'
+    state: present
+  ignore_errors: true
+  register: error_on_missing_required_param
+- name: Verify error_on_missing_required_param
+  assert:
+    that:
+    - error_on_missing_required_param is failed
+    - 'error_on_missing_required_param.msg == "state is present but all of the following
+      are missing: source, url"'

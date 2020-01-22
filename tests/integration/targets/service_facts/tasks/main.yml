@@ -1,0 +1,5 @@
+- name: Gather service facts
+  service_facts: null
+- name: check for ansible_facts.services exists
+  assert:
+    that: ansible_facts.services is defined
